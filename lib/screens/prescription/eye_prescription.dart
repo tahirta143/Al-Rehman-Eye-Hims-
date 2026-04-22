@@ -1,0 +1,1380 @@
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../custum widgets/drawer/base_scaffold.dart';
+import '../../providers/prescription_provider/prescription_provider.dart';
+import '../../core/providers/permission_provider.dart';
+import '../../models/prescription_model/prescription_model.dart';
+import '../../models/mr_model/mr_patient_model.dart';
+import '../../models/vitals_model/vitals_model.dart';
+import '../../core/utils/date_formatter.dart';
+import '../../custum widgets/custom_loader.dart';
+
+// ─── Constants ────────────────────────────────────────────────────────────────
+const kTeal = Color(0xFF00B5AD);
+const kTealLight = Color(0xFFE0F7F5);
+const kBorder = Color(0xFFCCECE9);
+const kBg = Color(0xFFF8F9FA);
+const kTextDark = Color(0xFF2D3748);
+const kTextMid = Color(0xFF718096);
+const kWhite = Colors.white;
+
+class EyePrescriptionScreen extends StatefulWidget {
+  const EyePrescriptionScreen({super.key});
+
+  @override
+  State<EyePrescriptionScreen> createState() => _EyePrescriptionScreenState();
+}
+
+class _EyePrescriptionScreenState extends State<EyePrescriptionScreen>
+    with SingleTickerProviderStateMixin {
+  late TabController _tabController;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 6, vsync: this);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        final provider = context.read<PrescriptionProvider>();
+        provider.clearForm();
+        provider.loadConsultationPatients();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final provider = context.watch<PrescriptionProvider>();
+    final isMobile = MediaQuery.of(context).size.width < 900;
+
+    return BaseScaffold(
+      title: 'Eye Prescription',
+      drawerIndex: 12,
+      body: Stack(
+        children: [
+          Column(
+            children: [
+              if (isMobile) _EyeConsultationDropdown(provider: provider),
+              Expanded(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      flex: 9,
+                      child: _EyePrescriptionBody(tabController: _tabController, provider: provider),
+                    ),
+                    if (!isMobile)
+                      const Expanded(
+                        flex: 3,
+                        child: _EyeConsultationSidebar(),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          if (provider.isSaving || provider.isLoading)
+            const CustomLoader(color: kTeal,),
+        ],
+      ),
+    );
+  }
+}
+
+class _EyeConsultationDropdown extends StatelessWidget {
+  final PrescriptionProvider provider;
+  const _EyeConsultationDropdown({required this.provider});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF1F5F9),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: kBorder),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<dynamic>(
+          isExpanded: true,
+          hint: Row(
+            children: [
+              const Icon(Icons.people_outline, size: 18, color: kTeal),
+              const SizedBox(width: 8),
+              Text(provider.isLoadingPatients ? 'Loading patients...' : 'Select Consultation Patient', 
+                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: kTextDark)),
+            ],
+          ),
+          value: null,
+          onChanged: (val) => provider.selectConsultationPatient(val, department: 'Eye'),
+          items: provider.consultationPatients.map((p) {
+            return DropdownMenuItem(
+              value: p,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(p['patient_name'] ?? '', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                  Text('MR: ${p['patient_mr_number']} | ${p['receipt_id']}', style: const TextStyle(fontSize: 10, color: kTextMid)),
+                ],
+              ),
+            );
+          }).toList(),
+        ),
+      ),
+    );
+  }
+}
+
+class _EyeConsultationSidebar extends StatefulWidget {
+  const _EyeConsultationSidebar();
+
+  @override
+  State<_EyeConsultationSidebar> createState() => _EyeConsultationSidebarState();
+}
+
+class _EyeConsultationSidebarState extends State<_EyeConsultationSidebar> {
+  @override
+  void initState() {
+    super.initState();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final provider = context.watch<PrescriptionProvider>();
+    return Container(
+      margin: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: kWhite,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: kBorder),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 4)],
+      ),
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(colors: [Color(0xFF2563EB), Color(0xFF1D4ED8)]),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(12.0)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.assignment_ind, color: kWhite, size: 16),
+                const SizedBox(width: 8),
+                const Text('Consultation Patients', style: TextStyle(color: kWhite, fontWeight: FontWeight.bold, fontSize: 13)),
+                const Spacer(),
+                IconButton(
+                  icon: Icon(Icons.refresh, color: kWhite.withOpacity(0.8), size: 16),
+                  onPressed: provider.loadConsultationPatients,
+                  constraints: const BoxConstraints(),
+                  padding: EdgeInsets.zero,
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: provider.isLoadingPatients
+                ? const Center(child: CircularProgressIndicator(strokeWidth: 2, color: kTeal))
+                : provider.consultationPatients.isEmpty
+                    ? const _EyeSidebarPlaceholder(icon: Icons.history, message: 'No consultations today')
+                    : ListView.separated(
+                        itemCount: provider.consultationPatients.length,
+                        separatorBuilder: (_, __) => const Divider(height: 1),
+                        itemBuilder: (context, idx) {
+                          final p = provider.consultationPatients[idx];
+                          return ListTile(
+                            dense: true,
+                            onTap: () => provider.selectConsultationPatient(p, department: 'Eye'),
+                            title: Text(p['patient_name'] ?? '', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                            subtitle: Text(p['service_detail'] ?? '', style: const TextStyle(fontSize: 10, color: kTextMid)),
+                            trailing: Text(p['patient_mr_number']?.toString() ?? '', style: const TextStyle(fontSize: 10, color: Color(0xFF2563EB), fontWeight: FontWeight.bold)),
+                          );
+                        },
+                      ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EyeSidebarPlaceholder extends StatelessWidget {
+  final IconData icon;
+  final String message;
+  const _EyeSidebarPlaceholder({required this.icon, required this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, size: 40, color: kTextMid.withOpacity(0.3)),
+          const SizedBox(height: 8),
+          Text(message, style: TextStyle(fontSize: 11, color: kTextMid.withOpacity(0.6))),
+        ],
+      ),
+    );
+  }
+}
+
+class _EyePrescriptionBody extends StatelessWidget {
+  final TabController tabController;
+  final PrescriptionProvider provider;
+  const _EyePrescriptionBody({required this.tabController, required this.provider});
+
+  @override
+  Widget build(BuildContext context) {
+    final mq = MediaQuery.of(context);
+    return SingleChildScrollView(
+      padding: EdgeInsets.fromLTRB(16, 16, 16, mq.size.height * 0.12),
+      child: Column(
+        children: [
+          _EyePatientInfoCard(provider: provider),
+          const SizedBox(height: 16),
+          _EyeTabSection(tabController: tabController, provider: provider),
+          const SizedBox(height: 20),
+          _EyeSavePrintButton(provider: provider),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Patient Info (Minimal version for Eye) ───────────────────────────────────
+// ─── Patient Info Card ────────────────────────────────────────────────────────
+class _EyePatientInfoCard extends StatelessWidget {
+  final PrescriptionProvider provider;
+  const _EyePatientInfoCard({required this.provider});
+
+  @override
+  Widget build(BuildContext context) {
+    final p = provider.currentPatient;
+    final doctorName = provider.doctorName ?? (provider.currentPatient != null ? (context.read<PermissionProvider>().fullName ?? 'Doctor') : 'Enter doctor name');
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: kWhite,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: kBorder),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 4)],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.person_outline, color: kTeal, size: 18),
+              const SizedBox(width: 8),
+              const Text('Eye Patient Information', style: TextStyle(fontWeight: FontWeight.bold, color: kTextDark)),
+              const Spacer(),
+              if (provider.isLoading)
+                const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: kTeal)),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: _InputField(
+                  label: 'MR Number',
+                  hint: 'Search MR...',
+                  required: true,
+                  initialValue: p?.mrNumber,
+                  onSubmitted: (val) => provider.searchPatient(val, department: 'Eye'),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _InputField(label: 'Receipt ID', hint: 'Enter receipt ID', initialValue: provider.receiptId, controller: provider.vitalControllers['receiptId']),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(child: _InputField(label: 'Patient Name', hint: '', initialValue: p?.fullName, readOnly: true)),
+              const SizedBox(width: 12),
+              Expanded(child: _InputField(label: 'Age / Gender', hint: '', initialValue: p != null ? '${p.age ?? ''} / ${p.gender}' : '', readOnly: true)),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(child: _InputField(label: 'Phone', hint: '', initialValue: p?.phoneNumber, readOnly: true)),
+              const SizedBox(width: 12),
+              Expanded(child: _InputField(label: 'Doctor', hint: '', initialValue: doctorName, readOnly: true)),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _InputField(label: 'Address', hint: '', initialValue: p?.address, readOnly: true),
+          const SizedBox(height: 16),
+          _VitalsSummaryBox(vitals: provider.currentVitals),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Vitals Summary Widget ────────────────────────────────────────────────────
+class _VitalsSummaryBox extends StatelessWidget {
+  final VitalsModel? vitals;
+  const _VitalsSummaryBox({this.vitals});
+
+  @override
+  Widget build(BuildContext context) {
+    if (vitals == null) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF1F5F9), // slate-100
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: const Color(0xFFE2E8F0)), // slate-200
+        ),
+        child: const Row(
+          children: [
+            Icon(Icons.info_outline, size: 14, color: Colors.amber),
+            SizedBox(width: 8),
+            Text('No vitals recorded for this visit', style: TextStyle(fontSize: 10, color: Color(0xFF64748B), fontStyle: FontStyle.italic)),
+          ],
+        ),
+      );
+    }
+
+    final items = [
+      {'label': 'Weight', 'val': '${vitals!.weight ?? '—'}', 'unit': 'kg'},
+      {'label': 'Height', 'val': '${vitals!.height ?? '—'}', 'unit': 'in'},
+      {'label': 'BMI', 'val': '${vitals!.bmi ?? '—'}', 'unit': ''},
+      {'label': 'B.P.', 'val': (vitals!.systolic != null && vitals!.diastolic != null) ? '${vitals!.systolic}/${vitals!.diastolic}' : '—', 'unit': 'mmHg'},
+      {'label': 'Pulse', 'val': '${vitals!.pulse ?? '—'}', 'unit': 'bpm'},
+      {'label': 'SpO2', 'val': '${vitals!.spo2 ?? '—'}', 'unit': '%'},
+      {'label': 'Temp', 'val': '${vitals!.temperature ?? '—'}', 'unit': '°F'},
+      {'label': 'Pain', 'val': '${vitals!.painScale}', 'unit': '/10'},
+    ];
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: kBg.withOpacity(0.5),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFDBEAFE)), // blue-100
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.monitor_heart_outlined, size: 14, color: Color(0xFF3B82F6)), // blue-500
+              SizedBox(width: 6),
+              const Text('PATIENT VITALS', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF1E3A8A), letterSpacing: 0.5)),
+            ],
+          ),
+          const SizedBox(height: 10),
+          LayoutBuilder(builder: (context, lbc) {
+            final sw = MediaQuery.of(context).size.width;
+            final isT = sw > 600;
+            final crossCount = isT ? 8 : 4;
+            // Lower aspect ratio means more height per cell
+            final aspectRatio = isT ? 1.6 : (sw < 380 ? 1.2 : 1.4);
+
+            return GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: crossCount,
+                crossAxisSpacing: 8,
+                mainAxisSpacing: 8,
+                childAspectRatio: aspectRatio,
+              ),
+              itemCount: items.length,
+              itemBuilder: (context, i) {
+                final it = items[i];
+                return Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: kWhite,
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: const Color(0xFFF1F5F9)), // slate-100
+                    boxShadow: [
+                      BoxShadow(color: Colors.black.withOpacity(0.01), blurRadius: 2, offset: const Offset(0, 1)),
+                    ],
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(it['label']!.toUpperCase(), style: const TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: kTextMid)), 
+                      const SizedBox(height: 2),
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.baseline,
+                          textBaseline: TextBaseline.alphabetic,
+                          children: [
+                            Text(it['val']!, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: it['val'] == '—' ? kTextMid.withOpacity(0.5) : kTextDark)),
+                            if (it['unit'] != '' && it['val'] != '—') ...[
+                              const SizedBox(width: 2),
+                              Text(it['unit']!, style: const TextStyle(fontSize: 8, color: kTextMid)),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            );
+          }),
+        ],
+      ),
+    );
+  }
+}
+
+class _InputField extends StatelessWidget {
+  final String label;
+  final String hint;
+  final bool required;
+  final String? initialValue;
+  final bool readOnly;
+  final Function(String)? onSubmitted;
+  final TextEditingController? controller;
+
+  const _InputField({
+    required this.label,
+    required this.hint,
+    this.required = false,
+    this.initialValue,
+    this.readOnly = false,
+    this.onSubmitted,
+    this.controller,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: kTextMid)),
+            if (required) const Text(' *', style: TextStyle(color: Colors.red, fontSize: 11)),
+          ],
+        ),
+        const SizedBox(height: 4),
+        TextField(
+          controller: controller ?? (initialValue != null ? TextEditingController(text: initialValue) : null),
+          readOnly: readOnly,
+          onSubmitted: onSubmitted,
+          style: const TextStyle(fontSize: 12),
+          decoration: InputDecoration(
+            hintText: hint,
+            isDense: true,
+            filled: readOnly,
+            fillColor: readOnly ? kBg : kWhite,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: kBorder)),
+            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: kBorder)),
+            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: kTeal)),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ─── Tab Section ─────────────────────────────────────────────────────────────
+class _EyeTabSection extends StatelessWidget {
+  final TabController tabController;
+  final PrescriptionProvider provider;
+  const _EyeTabSection({required this.tabController, required this.provider});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: kWhite,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: kBorder),
+      ),
+      child: Column(
+        children: [
+          TabBar(
+            controller: tabController,
+            isScrollable: true,
+            tabAlignment: TabAlignment.start,
+            labelColor: kTeal,
+            indicatorColor: kTeal,
+            unselectedLabelColor: kTextMid,
+            tabs: const [
+              Tab(text: 'Diagnosis'),
+              Tab(text: 'Optometrist'),
+              Tab(text: 'Examination'),
+              Tab(text: 'Management'),
+              Tab(text: 'Medicines'),
+              Tab(text: 'Old Visits'),
+            ],
+          ),
+          AnimatedBuilder(
+            animation: tabController,
+            builder: (context, child) {
+              return switch (tabController.index) {
+                0 => _DiagnosisTab(provider: provider),
+                1 => _OptometristTab(provider: provider),
+                2 => _ExaminationTab(provider: provider),
+                3 => _ManagementTab(provider: provider),
+                4 => _MedicinesTab(provider: provider),
+                5 => _OldVisitsTab(provider: provider),
+                _ => const SizedBox.shrink(),
+              };
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Optometrist Tab ──────────────────────────────────────────────────────────
+class _OptometristTab extends StatelessWidget {
+  final PrescriptionProvider provider;
+  const _OptometristTab({required this.provider});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const _TabHeader(title: 'History', icon: Icons.history_edu),
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(color: kBg, borderRadius: BorderRadius.circular(8), border: Border.all(color: kBorder)),
+            child: Column(
+              children: [
+                Wrap(
+                  spacing: 4,
+                  runSpacing: 0,
+                  children: provider.eyeHistory.keys.map((key) {
+                    return SizedBox(
+                      width: 140,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Checkbox(
+                            value: provider.eyeHistory[key],
+                            onChanged: (_) => provider.toggleEyeHistory(key),
+                            activeColor: kTeal,
+                            visualDensity: VisualDensity.compact,
+                          ),
+                          Expanded(child: Text(key, style: const TextStyle(fontSize: 11, color: kTextDark))),
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 8),
+                _InputField(label: 'Other History', hint: 'Enter other...', initialValue: provider.eyeOtherHistoryCtrl.text),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
+          const _TabHeader(title: 'Refraction Matrix', icon: Icons.grid_on),
+          const SizedBox(height: 8),
+          _RefractionMatrixWidget(side: 'right', label: 'R I G H T', provider: provider),
+          const SizedBox(height: 8),
+          _RefractionMatrixWidget(side: 'left', label: 'L E F T', provider: provider),
+          const SizedBox(height: 8),
+          _RefractionMatrixWidget(side: 'add', label: 'A D D', provider: provider),
+          const SizedBox(height: 20),
+          const _TabHeader(title: 'Vision Stats', icon: Icons.remove_red_eye),
+          const SizedBox(height: 8),
+          _VisionGrid(provider: provider),
+        ],
+      ),
+    );
+  }
+}
+
+class _TabHeader extends StatelessWidget {
+  final String title;
+  final IconData icon;
+  const _TabHeader({required this.title, required this.icon});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(icon, size: 16, color: kTeal),
+        const SizedBox(width: 8),
+        Text(title.toUpperCase(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: kTextDark, letterSpacing: 1.1)),
+      ],
+    );
+  }
+}
+
+class _VisionGrid extends StatelessWidget {
+  final PrescriptionProvider provider;
+  const _VisionGrid({required this.provider});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        _visionRow('Right Eye', 'right'),
+        const SizedBox(height: 12),
+        _visionRow('Left Eye', 'left'),
+      ],
+    );
+  }
+
+  Widget _visionRow(String label, String side) {
+    final ctrls = provider.visionCtrls[side]!;
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(color: kBg.withOpacity(0.5), borderRadius: BorderRadius.circular(8), border: Border.all(color: kBorder)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: kTeal)),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(child: _InputField(label: 'VAR', hint: '', controller: ctrls['var'])),
+              const SizedBox(width: 8),
+              Expanded(child: _InputField(label: 'PH', hint: '', controller: ctrls['ph'])),
+              const SizedBox(width: 8),
+              Expanded(child: _InputField(label: 'REF', hint: '', controller: ctrls['ref'])),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RefractionMatrixWidget extends StatelessWidget {
+  final String side;
+  final String label;
+  final PrescriptionProvider provider;
+  const _RefractionMatrixWidget({required this.side, required this.label, required this.provider});
+
+  @override
+  Widget build(BuildContext context) {
+    final ctrls = provider.refractionCtrls[side]!;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+        const SizedBox(height: 4),
+        Row(
+          children: [
+            _tinyInput(ctrls['sph']!, 'SPH'),
+            const SizedBox(width: 4),
+            _tinyInput(ctrls['cyl']!, 'CYL'),
+            const SizedBox(width: 4),
+            _tinyInput(ctrls['axis']!, 'AXIS'),
+            const SizedBox(width: 4),
+            _tinyInput(ctrls['va']!, 'VA'),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _tinyInput(TextEditingController ctrl, String hint) {
+    return Expanded(
+      child: TextField(
+        controller: ctrl,
+        style: const TextStyle(fontSize: 11),
+        decoration: InputDecoration(
+          hintText: hint,
+          isDense: true,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(4)),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Diagnosis Tab ───────────────────────────────────────────────────────────
+class _DiagnosisTab extends StatelessWidget {
+  final PrescriptionProvider provider;
+  const _DiagnosisTab({required this.provider});
+
+  @override
+  Widget build(BuildContext context) {
+    if (provider.diagnosisQuestions.isEmpty) {
+      return const Center(child: Text('No diagnosis questions found for Eye.'));
+    }
+
+    return ListView.separated(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      padding: const EdgeInsets.all(16),
+      itemCount: provider.diagnosisQuestions.length,
+      separatorBuilder: (context, index) => const SizedBox(height: 16),
+      itemBuilder: (context, index) {
+        final q = provider.diagnosisQuestions[index];
+        return Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(color: kBg.withOpacity(0.5), borderRadius: BorderRadius.circular(10), border: Border.all(color: kBorder)),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(q['question_text'] ?? '', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: kTextDark)),
+              const SizedBox(height: 10),
+              if (q['question_mode'] == 'text')
+                _InputField(label: 'Answer', hint: 'Type answer...', onSubmitted: (val) => provider.setDiagnosisAnswer(q['id'], val))
+              else if (q['question_mode'] == 'mcq' || q['question_mode'] == 'checkbox')
+                Wrap(
+                  spacing: 12,
+                  children: (q['options'] as List? ?? []).map((opt) {
+                    final isSelected = (provider.diagnosisAnswers[q['id']] is List) 
+                      ? (provider.diagnosisAnswers[q['id']] as List).contains(opt['id'])
+                      : provider.diagnosisAnswers[q['id']] == opt['id'];
+                    
+                    return Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Checkbox(
+                          value: isSelected,
+                          onChanged: (val) {
+                            if (q['question_mode'] == 'mcq') {
+                              provider.setDiagnosisAnswer(q['id'], opt['id']);
+                            } else {
+                              final current = (provider.diagnosisAnswers[q['id']] as List? ?? []).toList();
+                              if (val == true) current.add(opt['id']); else current.remove(opt['id']);
+                              provider.setDiagnosisAnswer(q['id'], current);
+                            }
+                          },
+                          activeColor: kTeal,
+                        ),
+                        Text(opt['option_text'] ?? '', style: const TextStyle(fontSize: 12)),
+                      ],
+                    );
+                  }).toList(),
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+// ─── Examination Tab ─────────────────────────────────────────────────────────
+class _ExaminationTab extends StatelessWidget {
+  final PrescriptionProvider provider;
+  const _ExaminationTab({required this.provider});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const _TabHeader(title: 'Examination Details', icon: Icons.search),
+          const SizedBox(height: 16),
+          _InputField(
+            label: 'Presenting Complaints', 
+            hint: 'Describe complaints...', 
+            controller: provider.presentingComplaintsCtrl,
+          ),
+          const SizedBox(height: 20),
+          _SideSelector(
+            title: 'Complaints',
+            items: provider.eyeComplaints,
+            onAdd: (name, side) => provider.addEyeItem('complaint', name, side),
+            onRemove: (idx) => provider.removeEyeItem('complaint', idx),
+          ),
+          const SizedBox(height: 20),
+          _SideSelector(
+            title: 'Examinations',
+            items: provider.eyeExaminations,
+            onAdd: (name, side) => provider.addEyeItem('examination', name, side),
+            onRemove: (idx) => provider.removeEyeItem('examination', idx),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Management Tab ──────────────────────────────────────────────────────────
+class _ManagementTab extends StatelessWidget {
+  final PrescriptionProvider provider;
+  const _ManagementTab({required this.provider});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const _TabHeader(title: 'Management & Advised', icon: Icons.healing),
+          const SizedBox(height: 16),
+          _SideSelector(
+            title: 'Advised Items',
+            items: provider.eyeAdvised,
+            onAdd: (name, side) => provider.addEyeItem('advised', name, side),
+            onRemove: (idx) => provider.removeEyeItem('advised', idx),
+          ),
+          const SizedBox(height: 20),
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Treatment Type', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: kTextMid)),
+                    const SizedBox(height: 4),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      decoration: BoxDecoration(color: kWhite, borderRadius: BorderRadius.circular(8), border: Border.all(color: kBorder)),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String>(
+                          isExpanded: true,
+                          value: provider.eyeTreatmentType.isEmpty ? null : provider.eyeTreatmentType,
+                          onChanged: (v) => provider.setEyeTreatmentType(v!),
+                          items: ['No Treatment', 'Consultation', 'Medication', 'Surgery'].map((s) => DropdownMenuItem(value: s, child: Text(s, style: const TextStyle(fontSize: 12)))).toList(),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Operation Date', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: kTextMid)),
+                    const SizedBox(height: 4),
+                    InkWell(
+                      onTap: () async {
+                        final date = await showDatePicker(context: context, initialDate: DateTime.now(), firstDate: DateTime.now(), lastDate: DateTime(2030));
+                        if (date != null) provider.setOperationDate(date);
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+                        decoration: BoxDecoration(color: kWhite, borderRadius: BorderRadius.circular(8), border: Border.all(color: kBorder)),
+                        child: Row(
+                          children: [
+                            Text(provider.eyeOperationDate != null ? provider.eyeOperationDate!.toString().split(' ')[0] : 'Select date', style: const TextStyle(fontSize: 12)),
+                            const Spacer(),
+                            const Icon(Icons.calendar_today, size: 14, color: kTeal),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          _InputField(label: 'Remarks', hint: 'Add remarks...', controller: provider.eyeRemarksCtrl),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Side Selector Widget ─────────────────────────────────────────────────────
+class _SideSelector extends StatefulWidget {
+  final String title;
+  final List<EyeSideItem> items;
+  final Function(String, String) onAdd;
+  final Function(int) onRemove;
+
+  const _SideSelector({required this.title, required this.items, required this.onAdd, required this.onRemove});
+
+  @override
+  State<_SideSelector> createState() => _SideSelectorState();
+}
+
+class _SideSelectorState extends State<_SideSelector> {
+  final TextEditingController _ctrl = TextEditingController();
+  String _selectedSide = 'B';
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(widget.title.toUpperCase(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: kTextMid, letterSpacing: 1.1)),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              flex: 3,
+              child: TextField(
+                controller: _ctrl,
+                style: const TextStyle(fontSize: 12),
+                decoration: InputDecoration(
+                  hintText: 'Enter name...',
+                  isDense: true,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: kBorder)),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              decoration: BoxDecoration(color: kBg, borderRadius: BorderRadius.circular(8), border: Border.all(color: kBorder)),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<String>(
+                  value: _selectedSide,
+                  onChanged: (v) => setState(() => _selectedSide = v!),
+                  items: ['L', 'R', 'B'].map((s) => DropdownMenuItem(value: s, child: Text(s, style: const TextStyle(fontSize: 12)))).toList(),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            IconButton.filled(
+              icon: const Icon(Icons.add, size: 18),
+              onPressed: () {
+                if (_ctrl.text.isNotEmpty) {
+                  widget.onAdd(_ctrl.text, _selectedSide);
+                  _ctrl.clear();
+                }
+              },
+              style: IconButton.styleFrom(backgroundColor: kTeal, foregroundColor: kWhite),
+            ),
+          ],
+        ),
+        if (widget.items.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            children: widget.items.asMap().entries.map((e) {
+              return Chip(
+                label: Text('${e.value.name} (${e.value.side})', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: kTeal)),
+                onDeleted: () => widget.onRemove(e.key),
+                deleteIcon: const Icon(Icons.close, size: 12, color: kTeal),
+                backgroundColor: kTealLight,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20), side: const BorderSide(color: kTeal)),
+              );
+            }).toList(),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+// ─── Medicines Tab ───────────────────────────────────────────────────────────
+class _MedicinesTab extends StatelessWidget {
+  final PrescriptionProvider provider;
+  const _MedicinesTab({required this.provider});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _EyeMedModeToggle(provider: provider),
+              _EyeLanguageIndicator(provider: provider),
+            ],
+          ),
+          const SizedBox(height: 16),
+          _EyeMedicineSearchArea(provider: provider),
+          const SizedBox(height: 20),
+          _EyeMedicineTable(provider: provider),
+        ],
+      ),
+    );
+  }
+}
+
+class _EyeMedModeToggle extends StatelessWidget {
+  final PrescriptionProvider provider;
+  const _EyeMedModeToggle({required this.provider});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(border: Border.all(color: kBorder), borderRadius: BorderRadius.circular(8), color: kWhite),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _buildBtn('Medicine', 'medicine', Icons.medical_services, const Color(0xFF2563EB)),
+          _buildBtn('Formula', 'formula', Icons.science, const Color(0xFF16A34A)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBtn(String label, String mode, IconData icon, Color activeColor) {
+    final isActive = provider.medMode == mode;
+    return InkWell(
+      onTap: () => provider.setMedMode(mode),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: isActive ? activeColor : kWhite,
+          borderRadius: BorderRadius.circular(7),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, size: 14, color: isActive ? kWhite : kTextMid),
+            const SizedBox(width: 6),
+            Text(label, style: TextStyle(color: isActive ? kWhite : kTextMid, fontSize: 11, fontWeight: FontWeight.bold)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _EyeLanguageIndicator extends StatelessWidget {
+  final PrescriptionProvider provider;
+  const _EyeLanguageIndicator({required this.provider});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        const Icon(Icons.language, size: 14, color: Colors.blue),
+        const SizedBox(width: 4),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+          decoration: BoxDecoration(color: const Color(0xFFDBEAFE), borderRadius: BorderRadius.circular(4), border: Border.all(color: const Color(0xFF93C5FD))),
+          child: Text(provider.inputLang == 'ur' ? 'اردو' : 'English', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF1D4ED8))),
+        ),
+      ],
+    );
+  }
+}
+
+class _EyeMedicineSearchArea extends StatefulWidget {
+  final PrescriptionProvider provider;
+  const _EyeMedicineSearchArea({required this.provider});
+
+  @override
+  State<_EyeMedicineSearchArea> createState() => _EyeMedicineSearchAreaState();
+}
+
+class _EyeMedicineSearchAreaState extends State<_EyeMedicineSearchArea> {
+  final TextEditingController _searchCtrl = TextEditingController();
+  final LayerLink _layerLink = LayerLink();
+  OverlayEntry? _overlayEntry;
+
+  final Map<String, TextEditingController> _doseCtrls = {
+    'm': TextEditingController(text: '0'),
+    'a': TextEditingController(text: '0'),
+    'e': TextEditingController(text: '0'),
+    'n': TextEditingController(text: '0'),
+    'days': TextEditingController(text: '5'),
+    'qty': TextEditingController(text: '1'),
+  };
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    for (var c in _doseCtrls.values) c.dispose();
+    _hideOverlay();
+    super.dispose();
+  }
+
+  void _showOverlay() {
+    _hideOverlay();
+    _overlayEntry = _createOverlayEntry();
+    Overlay.of(context).insert(_overlayEntry!);
+  }
+
+  void _hideOverlay() {
+    _overlayEntry?.remove();
+    _overlayEntry = null;
+  }
+
+  OverlayEntry _createOverlayEntry() {
+    RenderBox renderBox = context.findRenderObject() as RenderBox;
+    var size = renderBox.size;
+
+    return OverlayEntry(
+      builder: (context) => Positioned(
+        width: size.width,
+        child: CompositedTransformFollower(
+          link: _layerLink,
+          showWhenUnlinked: false,
+          offset: Offset(0, size.height + 5),
+          child: Material(
+            elevation: 4,
+            borderRadius: BorderRadius.circular(8),
+            child: Container(
+              constraints: const BoxConstraints(maxHeight: 200),
+              decoration: BoxDecoration(color: kWhite, borderRadius: BorderRadius.circular(8), border: Border.all(color: kBorder)),
+              child: ListView.builder(
+                padding: EdgeInsets.zero,
+                shrinkWrap: true,
+                itemCount: widget.provider.medicineSearchResults.length,
+                itemBuilder: (context, index) {
+                  final med = widget.provider.medicineSearchResults[index];
+                  final name = med['medicine_name'] ?? med['name'] ?? '';
+                  return ListTile(
+                    dense: true,
+                    title: Text(name, style: const TextStyle(fontSize: 12)),
+                    onTap: () {
+                      _searchCtrl.text = name;
+                      _hideOverlay();
+                    },
+                  );
+                },
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return CompositedTransformTarget(
+      link: _layerLink,
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(color: kBg, borderRadius: BorderRadius.circular(10), border: Border.all(color: kBorder)),
+        child: Column(
+          children: [
+            TextField(
+              controller: _searchCtrl,
+              style: const TextStyle(fontSize: 12),
+              onChanged: (val) {
+                widget.provider.updateMedSearch(val);
+                if (val.isNotEmpty) _showOverlay(); else _hideOverlay();
+              },
+              decoration: InputDecoration(
+                hintText: widget.provider.medMode == 'medicine' ? 'Search medicine...' : 'Search formula...',
+                prefixIcon: Icon(widget.provider.medMode == 'medicine' ? Icons.medical_services_outlined : Icons.science_outlined, size: 16),
+                isDense: true,
+                filled: true,
+                fillColor: kWhite,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: kBorder)),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                _doseInput('m', 'صبح'),
+                _doseInput('a', 'دوپہر'),
+                _doseInput('e', 'شام'),
+                _doseInput('n', 'رات'),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: TextField(
+                    controller: _doseCtrls['days'],
+                    keyboardType: TextInputType.number,
+                    style: const TextStyle(fontSize: 11),
+                    decoration: InputDecoration(hintText: 'Days', isDense: true, labelText: 'Days', labelStyle: const TextStyle(fontSize: 10), border: OutlineInputBorder(borderRadius: BorderRadius.circular(4))),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                IconButton.filled(
+                  icon: const Icon(Icons.add, size: 18),
+                  onPressed: () {
+                    if (_searchCtrl.text.isNotEmpty) {
+                      final med = PrescriptionMedicine(
+                        medicineName: _searchCtrl.text,
+                        medicineId: null,
+                        dosage: '${_doseCtrls['m']!.text}-${_doseCtrls['a']!.text}-${_doseCtrls['e']!.text}-${_doseCtrls['n']!.text}',
+                        forDays: _doseCtrls['days']!.text,
+                        qty: _doseCtrls['qty']!.text,
+                        morning: double.tryParse(_doseCtrls['m']!.text) ?? 0,
+                        afternoon: double.tryParse(_doseCtrls['a']!.text) ?? 0,
+                        evening: double.tryParse(_doseCtrls['e']!.text) ?? 0,
+                        night: double.tryParse(_doseCtrls['n']!.text) ?? 0,
+                        isFormula: widget.provider.medMode == 'formula',
+                      );
+                      widget.provider.addMedicine(med);
+                      _searchCtrl.clear();
+                    }
+                  },
+                  style: IconButton.styleFrom(backgroundColor: kTeal, foregroundColor: kWhite),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _doseInput(String key, String urduLabel) {
+    return Expanded(
+      child: Padding(
+        padding: const EdgeInsets.only(right: 4),
+        child: Column(
+          children: [
+            Text(urduLabel, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: kTeal)),
+            const SizedBox(height: 2),
+            TextField(
+              controller: _doseCtrls[key],
+              keyboardType: TextInputType.number,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 11),
+              decoration: InputDecoration(isDense: true, contentPadding: const EdgeInsets.symmetric(vertical: 8), border: OutlineInputBorder(borderRadius: BorderRadius.circular(4))),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _EyeMedicineTable extends StatelessWidget {
+  final PrescriptionProvider provider;
+  const _EyeMedicineTable({required this.provider});
+
+  @override
+  Widget build(BuildContext context) {
+    if (provider.prescribedMedicines.isEmpty) return const SizedBox();
+    return Container(
+      decoration: BoxDecoration(border: Border.all(color: kBorder), borderRadius: BorderRadius.circular(10), color: kWhite),
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: const BoxDecoration(color: Color(0xFFF8FAFC), borderRadius: BorderRadius.vertical(top: Radius.circular(10))),
+            child: const Row(children: [
+              Expanded(child: Text('Medicine', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+              SizedBox(width: 80, child: Text('Doses', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+              SizedBox(width: 40, child: Text('Days', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+              SizedBox(width: 40),
+            ]),
+          ),
+          ListView.separated(
+            padding: EdgeInsets.zero,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: provider.prescribedMedicines.length,
+            separatorBuilder: (_, __) => const Divider(height: 1),
+            itemBuilder: (context, idx) {
+              final med = provider.prescribedMedicines[idx];
+              return ListTile(
+                dense: true,
+                visualDensity: VisualDensity.compact,
+                title: Text(med.medicineName, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+                subtitle: Text(med.isFormula ? 'Formula' : 'Medicine', style: const TextStyle(fontSize: 9, color: kTextMid)),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SizedBox(width: 80, child: Text(med.dosage, textAlign: TextAlign.center, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: kTeal))),
+                    SizedBox(width: 40, child: Text('${med.forDays}D', textAlign: TextAlign.center, style: const TextStyle(fontSize: 10))),
+                    IconButton(icon: const Icon(Icons.close, size: 14, color: Colors.red), onPressed: () => provider.removeMedicine(idx)),
+                  ],
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Old Visits Tab ──────────────────────────────────────────────────────────
+class _OldVisitsTab extends StatelessWidget {
+  final PrescriptionProvider provider;
+  const _OldVisitsTab({required this.provider});
+
+  @override
+  Widget build(BuildContext context) {
+    if (provider.isLoadingHistory) return const Center(child: CircularProgressIndicator());
+    if (provider.prescriptionHistory.isEmpty) return const Center(child: Text('No previous visits found.'));
+
+    return ListView.separated(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      padding: const EdgeInsets.all(16),
+      itemCount: provider.prescriptionHistory.length,
+      separatorBuilder: (context, index) => const SizedBox(height: 12),
+      itemBuilder: (context, index) {
+        final h = provider.prescriptionHistory[index];
+        return Card(
+          elevation: 0,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10), side: const BorderSide(color: kBorder)),
+          child: ExpansionTile(
+            title: Text(h['created_at']?.split('T')[0] ?? '', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+            subtitle: Text('Dr. ${h['doctor_name'] ?? 'N/A'}', style: const TextStyle(fontSize: 11, color: kTextMid)),
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(12.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (h['history_examination'] != null) Text('History: ${h['history_examination']}', style: const TextStyle(fontSize: 12)),
+                    if (h['treatment'] != null) Text('Treatment: ${h['treatment']}', style: const TextStyle(fontSize: 12)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _EyeSavePrintButton extends StatelessWidget {
+  final PrescriptionProvider provider;
+  const _EyeSavePrintButton({required this.provider});
+
+  @override
+  Widget build(BuildContext context) {
+    final perm = context.read<PermissionProvider>();
+    return Container(
+      padding: const EdgeInsets.all(16),
+      width: double.infinity,
+      child: ElevatedButton.icon(
+        onPressed: provider.currentPatient == null ? null : () async {
+          final success = await provider.savePrescription(
+            isEye: true,
+            doctorName: perm.fullName ?? 'Doctor',
+            doctorSrlNo: 1, 
+          );
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+              content: Text(success ? 'Prescription saved successfully!' : 'Failed to save prescription!'),
+              backgroundColor: success ? Colors.green : Colors.red,
+            ));
+          }
+        },
+        icon: provider.isSaving 
+          ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: kWhite))
+          : const Icon(Icons.print),
+        label: const Text('Save & Print Prescription'),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: kTeal, 
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+      ),
+    );
+  }
+}
+
