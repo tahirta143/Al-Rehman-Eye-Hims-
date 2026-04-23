@@ -190,9 +190,9 @@ class _LabValuesScreenState extends State<LabValuesScreen> {
             _buildInfoField('MR No.*', 'Enter MR no.', 
               controller: _mrSearchCtrl, 
               onSubmitted: (val) {
-                final padded = val.padLeft(5, '0');
-                _mrSearchCtrl.text = padded;
-                provider.searchPatient(padded);
+                final mr = val.trim();
+                _mrSearchCtrl.text = mr;
+                provider.searchPatient(mr);
               },
               width: constraints.maxWidth * (isMobile ? 1 : 0.18)),
             _buildInfoField('Patient Name', '', 

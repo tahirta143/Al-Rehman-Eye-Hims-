@@ -168,13 +168,13 @@ class _HeaderCard extends StatelessWidget {
                           focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: kTeal)),
                         ),
                         onSubmitted: (val) {
-                          if (val.isNotEmpty) provider.searchPatient(val.padLeft(5, '0'));
+                          if (val.isNotEmpty) provider.searchPatient(val.trim());
                         },
                       ),
                     ),
                     const SizedBox(width: 12),
                     ElevatedButton.icon(
-                      onPressed: () => provider.searchPatient(mrCtrl.text.padLeft(5, '0')),
+                      onPressed: () => provider.searchPatient(mrCtrl.text.trim()),
                       icon: const Icon(Icons.search_rounded, size: 18),
                       label: const Text('Search'),
                       style: ElevatedButton.styleFrom(

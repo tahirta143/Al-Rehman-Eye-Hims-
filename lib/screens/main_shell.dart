@@ -45,20 +45,24 @@ class _MainShellState extends State<MainShell> {
       title: _titles[_currentBtmIndex],
       drawerIndex: _drawerIndices[_currentBtmIndex],
       showAppBar: _currentBtmIndex != 1 && _currentBtmIndex != 2,
-      onBottomNavTap: (index) {
-        if (index == 0) {
+      onBottomNavTap: (drawerIndex) {
+        // Convert drawer index to bottom index
+        final btmIndex = _drawerIndices.indexOf(drawerIndex);
+        if (btmIndex < 0) return;
+
+        if (btmIndex == 0) {
           final prov = context.read<DashboardProvider>();
           prov.resetToToday();
           prov.resetLoading();
           prov.refresh();
-        } else if (index == 2) {
+        } else if (btmIndex == 2) {
           final prov = context.read<ConsultationProvider>();
           prov.resetLoading();
           prov.loadDoctors();
           prov.loadAppointments();
         }
         setState(() {
-          _currentBtmIndex = index;
+          _currentBtmIndex = btmIndex;
         });
       },
       // Using IndexedStack to keep screen states alive and avoid re-build "shaking"

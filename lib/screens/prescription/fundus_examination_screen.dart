@@ -286,7 +286,7 @@ class _PatientInfoCard extends StatelessWidget {
       children: [
         _Row(children: [
           _InputField(label: 'MR No.*', hint: 'Search...', required: true, initialValue: patient?.mrNumber, onSubmitted: (val) {
-            final mr = val.padLeft(5, '0');
+            final mr = val.trim();
             prescriptionProvider.searchPatient(mr);
             fundusProvider.fetchHistory(mr);
           }),
@@ -314,7 +314,7 @@ class _PatientInfoCard extends StatelessWidget {
       children: [
         Row(children: [
           Expanded(flex: 2, child: _InputField(label: 'MR No.*', hint: 'Search...', required: true, initialValue: patient?.mrNumber, onSubmitted: (val) {
-             final mr = val.padLeft(5, '0');
+             final mr = val.trim();
              prescriptionProvider.searchPatient(mr);
              fundusProvider.fetchHistory(mr);
           })),

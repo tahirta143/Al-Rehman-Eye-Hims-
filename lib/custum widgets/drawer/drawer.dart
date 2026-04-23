@@ -127,34 +127,46 @@ class _CustomDrawerState extends State<CustomDrawer> {
 
     // ── Visible Prescription sub-items ───────────────────────────────────────
     final List<_DrawerItemData> prescriptionItems = [
-      if (perm.canAny([Perm.mrRead, Perm.mrCreate])) // Assume similar permissions for GP
+      if (perm.canAny([Perm.prescriptionRead, Perm.prescriptionCreate]))
         const _DrawerItemData(
           icon: Icons.medical_services_outlined,
           title: 'Prescription GP',
           index: 9,
         ),
+      if (perm.canAny([
+        Perm.prescriptionRead, Perm.prescriptionCreate,
+        Perm.eyeRecordRead, Perm.eyeRecordUpdate,
+        Perm.eyeDiagnosisRead, Perm.eyeDiagnosisUpdate,
+        Perm.eyeOptometristRead, Perm.eyeOptometristUpdate,
+        Perm.eyeExaminationRead, Perm.eyeExaminationUpdate,
+        Perm.eyeManagementRead, Perm.eyeManagementUpdate,
+        Perm.eyeMedicinesRead, Perm.eyeMedicinesUpdate,
+        Perm.eyeHistoryRead,
+      ]))
         const _DrawerItemData(
           icon: Icons.remove_red_eye_outlined,
           title: 'Eye Prescription',
           index: 12,
         ),
-      if (perm.canAny([Perm.mrRead, Perm.mrCreate]))
+      if (perm.canAny([Perm.prescriptionRead, Perm.prescriptionCreate]))
         const _DrawerItemData(
           icon: Icons.monitor_heart_outlined,
           title: 'Vitals',
           index: 13,
         ),
-      if (perm.canAny([Perm.mrRead, Perm.mrCreate]))
+      if (perm.canAny([Perm.prescriptionRead, Perm.prescriptionCreate]))
         const _DrawerItemData(
           icon: Icons.biotech_outlined,
           title: 'Lab Values',
           index: 14,
         ),
+      if (perm.canAny([Perm.prescriptionRead, Perm.prescriptionCreate]))
         const _DrawerItemData(
           icon: Icons.restaurant_menu_outlined,
           title: 'Nutritionist',
           index: 15,
         ),
+      if (perm.canAny([Perm.prescriptionRead, Perm.prescriptionCreate]))
         const _DrawerItemData(
           icon: Icons.visibility_outlined,
           title: 'Fundus Examination',
@@ -164,26 +176,30 @@ class _CustomDrawerState extends State<CustomDrawer> {
 
     // ── Visible Pharmacy sub-items ───────────────────────────────────────────
     final List<_DrawerItemData> pharmacyItems = [
-      const _DrawerItemData(
-        icon: Icons.medical_services_outlined,
-        title: 'Add / Modify Medicines',
-        index: 17,
-      ),
-      const _DrawerItemData(
-        icon: Icons.inventory_2_outlined,
-        title: 'Opening Balances',
-        index: 18,
-      ),
-      const _DrawerItemData(
-        icon: Icons.shopping_cart_outlined,
-        title: 'Purchase Posting',
-        index: 19,
-      ),
-      const _DrawerItemData(
-        icon: Icons.receipt_long_outlined,
-        title: 'Sales Invoice',
-        index: 20,
-      ),
+      if (perm.can(Perm.medicineRead))
+        const _DrawerItemData(
+          icon: Icons.medical_services_outlined,
+          title: 'Add / Modify Medicines',
+          index: 17,
+        ),
+      if (perm.can(Perm.medicineRead))
+        const _DrawerItemData(
+          icon: Icons.inventory_2_outlined,
+          title: 'Opening Balances',
+          index: 18,
+        ),
+      if (perm.can(Perm.medicineRead))
+        const _DrawerItemData(
+          icon: Icons.shopping_cart_outlined,
+          title: 'Purchase Posting',
+          index: 19,
+        ),
+      if (perm.can(Perm.medicineRead))
+        const _DrawerItemData(
+          icon: Icons.receipt_long_outlined,
+          title: 'Sales Invoice',
+          index: 20,
+        ),
     ];
 
     return Drawer(

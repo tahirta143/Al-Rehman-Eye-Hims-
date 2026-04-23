@@ -131,54 +131,27 @@ class _BaseScaffoldState extends State<BaseScaffold> {
   }
 
   Widget? _buildBottomNavBar() {
-    // Map drawer indices to bottom bar indices
-    // Bottom Bar Items: 0: Dashboard, 1: Emergency, 2: Consult, 3: MR View, 4: Expenses
-    // Drawer Indices mapping:
-    // 0: Dashboard -> 0
-    // 5: Emergency -> 1
-    // 1, 3, 4, 6, 7, 10, 11 (OPD/Consultation Related) -> 2
-    // 8, 9 (MR Related) -> 3
-    // 2 (Expenses) -> 4
-
-    int btmIndex = 0; // Default to Dashboard (index 0)
-
-    if (widget.drawerIndex == 0) {
-      btmIndex = 0; // Dashboard
-    } else if (widget.drawerIndex == 5) {
-      btmIndex = 1; // Emergency
-    } else if (widget.drawerIndex == 1) {
-      btmIndex = 2; // Consultation Appointment
-    } else if (widget.drawerIndex == 8) {
-      btmIndex = 3; // MR Details
-    } else if (widget.drawerIndex == 2) {
-      btmIndex = 4; // Add Expenses
-    } else {
-      btmIndex = 0; // Default all other drawer items to Dashboard
-    }
+    // currentIndex passed to the nav bar is the drawer index of the current screen
+    // The nav bar uses this to highlight the correct item by matching drawerIndex
+    final int btmIndex = widget.drawerIndex;
 
     return CustomFluidBottomNavBar(
       currentIndex: btmIndex,
-      onItemSelected: (index) {
-        if (index == btmIndex &&
-            (index == 0 || index == 1 || index == 3 || index == 4)) {
-          // If we are already on a primary screen of this tab, do nothing
-          // For Consult (index 2), we might want to navigate to the main Consult screen (index 1)
-          // if we are currently on a sub-screen like OPD records.
-          return;
-        }
+      onItemSelected: (drawerIndex) {
+        // drawerIndex is now passed directly from the nav bar
+        if (drawerIndex == widget.drawerIndex) return;
 
         if (widget.onBottomNavTap != null) {
-          widget.onBottomNavTap!(index);
+          // For MainShell, map drawer index back to bottom index
+          int btmIdx = 0;
+          if (drawerIndex == 0) btmIdx = 0;
+          else if (drawerIndex == 5) btmIdx = 1;
+          else if (drawerIndex == 1) btmIdx = 2;
+          else if (drawerIndex == 8) btmIdx = 3;
+          else if (drawerIndex == 2) btmIdx = 4;
+          widget.onBottomNavTap!(btmIdx);
           return;
         }
-
-        // Map back to drawer indices for navigation
-        int drawerIndex = 0;
-        if (index == 0) drawerIndex = 0;
-        else if (index == 1) drawerIndex = 5;
-        else if (index == 2) drawerIndex = 1;
-        else if (index == 3) drawerIndex = 8;
-        else if (index == 4) drawerIndex = 2;
 
         _navigateToScreen(context, drawerIndex);
       },

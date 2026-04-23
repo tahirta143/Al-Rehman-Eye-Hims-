@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../custum widgets/drawer/base_scaffold.dart';
 import '../../providers/prescription_provider/prescription_provider.dart';
 import '../../core/providers/permission_provider.dart';
+import '../../core/permissions/permission_keys.dart';
 import '../../models/prescription_model/prescription_model.dart';
 import '../../models/mr_model/mr_patient_model.dart';
 import '../../models/vitals_model/vitals_model.dart';
@@ -499,8 +500,44 @@ class _EyeTabSection extends StatelessWidget {
   final PrescriptionProvider provider;
   const _EyeTabSection({required this.tabController, required this.provider});
 
+  // Mirrors React's tab permission config exactly
+  static const _tabDefs = [
+    _EyeTabDef(
+      label: 'Diagnosis',
+      readPerms: [Perm.eyeDiagnosisRead, Perm.eyeDiagnosisUpdate, Perm.eyeRecordRead, Perm.eyeRecordUpdate, Perm.prescriptionRead, Perm.prescriptionCreate],
+      writePerms: [Perm.eyeDiagnosisUpdate, Perm.eyeRecordUpdate, Perm.prescriptionCreate],
+    ),
+    _EyeTabDef(
+      label: 'Optometrist',
+      readPerms: [Perm.eyeOptometristRead, Perm.eyeOptometristUpdate, Perm.eyeRecordRead, Perm.eyeRecordUpdate, Perm.prescriptionRead, Perm.prescriptionCreate],
+      writePerms: [Perm.eyeOptometristUpdate, Perm.eyeRecordUpdate, Perm.prescriptionCreate],
+    ),
+    _EyeTabDef(
+      label: 'Examination',
+      readPerms: [Perm.eyeExaminationRead, Perm.eyeExaminationUpdate, Perm.eyeRecordRead, Perm.eyeRecordUpdate, Perm.prescriptionRead, Perm.prescriptionCreate],
+      writePerms: [Perm.eyeExaminationUpdate, Perm.eyeRecordUpdate, Perm.prescriptionCreate],
+    ),
+    _EyeTabDef(
+      label: 'Management',
+      readPerms: [Perm.eyeManagementRead, Perm.eyeManagementUpdate, Perm.eyeRecordRead, Perm.eyeRecordUpdate, Perm.prescriptionRead, Perm.prescriptionCreate],
+      writePerms: [Perm.eyeManagementUpdate, Perm.eyeRecordUpdate, Perm.prescriptionCreate],
+    ),
+    _EyeTabDef(
+      label: 'Medicines',
+      readPerms: [Perm.eyeMedicinesRead, Perm.eyeMedicinesUpdate, Perm.eyeRecordRead, Perm.eyeRecordUpdate, Perm.prescriptionRead, Perm.prescriptionCreate],
+      writePerms: [Perm.eyeMedicinesUpdate, Perm.eyeRecordUpdate, Perm.prescriptionCreate],
+    ),
+    _EyeTabDef(
+      label: 'Old Visits',
+      readPerms: [Perm.eyeHistoryRead, Perm.eyeRecordRead, Perm.prescriptionRead],
+      writePerms: [],
+    ),
+  ];
+
   @override
   Widget build(BuildContext context) {
+    final perm = context.watch<PermissionProvider>();
+
     return Container(
       decoration: BoxDecoration(
         color: kWhite,
@@ -516,19 +553,58 @@ class _EyeTabSection extends StatelessWidget {
             labelColor: kTeal,
             indicatorColor: kTeal,
             unselectedLabelColor: kTextMid,
-            tabs: const [
-              Tab(text: 'Diagnosis'),
-              Tab(text: 'Optometrist'),
-              Tab(text: 'Examination'),
-              Tab(text: 'Management'),
-              Tab(text: 'Medicines'),
-              Tab(text: 'Old Visits'),
-            ],
+            tabs: _tabDefs.map((def) {
+              final canRead = perm.canAny(def.readPerms);
+              return Tab(
+                child: Opacity(
+                  opacity: canRead ? 1.0 : 0.35,
+                  child: Text(
+                    def.label,
+                    style: TextStyle(
+                      color: canRead ? null : Colors.grey,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
+            onTap: (index) {
+              // Prevent switching to a tab the user can't read
+              final canRead = perm.canAny(_tabDefs[index].readPerms);
+              if (!canRead) {
+                // Revert to current tab
+                tabController.animateTo(tabController.previousIndex);
+              }
+            },
           ),
           AnimatedBuilder(
             animation: tabController,
             builder: (context, child) {
-              return switch (tabController.index) {
+              final idx = tabController.index;
+              final def = _tabDefs[idx];
+              final canRead = perm.canAny(def.readPerms);
+              final canWrite = perm.canAny(def.writePerms);
+
+              if (!canRead) {
+                return Container(
+                  padding: const EdgeInsets.all(32),
+                  child: const Center(
+                    child: Column(
+                      children: [
+                        Icon(Icons.lock_outline, size: 40, color: Color(0xFFCBD5E0)),
+                        SizedBox(height: 12),
+                        Text(
+                          'You do not have access to this eye checkup section.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: Color(0xFFB7791F), fontSize: 13),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }
+
+              Widget tabContent = switch (idx) {
                 0 => _DiagnosisTab(provider: provider),
                 1 => _OptometristTab(provider: provider),
                 2 => _ExaminationTab(provider: provider),
@@ -537,12 +613,54 @@ class _EyeTabSection extends StatelessWidget {
                 5 => _OldVisitsTab(provider: provider),
                 _ => const SizedBox.shrink(),
               };
+
+              // Wrap non-old-visits tabs in IgnorePointer when read-only
+              if (idx != 5 && !canWrite) {
+                tabContent = Stack(
+                  children: [
+                    Opacity(opacity: 0.75, child: tabContent),
+                    Positioned.fill(
+                      child: IgnorePointer(
+                        child: Container(color: Colors.transparent),
+                      ),
+                    ),
+                    Positioned(
+                      top: 8, right: 8,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFFFBEB),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: const Color(0xFFFCD34D)),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.visibility_outlined, size: 12, color: Color(0xFFB45309)),
+                            SizedBox(width: 4),
+                            Text('View Only', style: TextStyle(fontSize: 10, color: Color(0xFFB45309), fontWeight: FontWeight.bold)),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              }
+
+              return tabContent;
             },
           ),
         ],
       ),
     );
   }
+}
+
+class _EyeTabDef {
+  final String label;
+  final List<String> readPerms;
+  final List<String> writePerms;
+  const _EyeTabDef({required this.label, required this.readPerms, required this.writePerms});
 }
 
 // ─── Optometrist Tab ──────────────────────────────────────────────────────────

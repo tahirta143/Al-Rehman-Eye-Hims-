@@ -91,21 +91,21 @@ class MrPatientApiModel {
 
   factory MrPatientApiModel.fromJson(Map<String, dynamic> json) {
     return MrPatientApiModel(
-      id: json['id'] as int,
+      id: int.tryParse(json['id']?.toString() ?? '0') ?? 0,
       mrNumber: (json['mr_number'] as String?) ?? '',
-      firstName: (json['first_name'] as String?) ?? '',
+      firstName: (json['first_name'] as String?) ?? (json['patient_name'] as String?) ?? '',
       lastName: (json['last_name'] as String?) ?? '',
       guardianName: json['guardian_name'] as String?,
       guardianRelation: (json['guardian_relation'] as String?) ?? 'Parent',
       cnic: json['cnic'] as String?,
       dob: json['dob'] as String?,
-      age: json['age'] as int?,
+      age: json['age'] is int ? json['age'] : (int.tryParse(json['age']?.toString() ?? '')),
       gender: (json['gender'] as String?) ?? 'Male',
-      phone: (json['phone'] as String?) ?? '',
+      phone: (json['phone'] as String?) ?? (json['phone_number'] as String?) ?? '',
       email: json['email'] as String?,
       profession: json['profession'] as String?,
       education: json['education'] as String?,
-      whatsappNo: (json['whatsapp_no'] as String?) ?? (json['whatsapp'] as String?),
+      whatsappNo: (json['whatsapp_no'] as String?) ?? (json['whatsapp'] as String?) ?? (json['phone'] as String?),
       address: json['address'] as String?,
       city: json['city'] as String?,
       bloodGroup: json['blood_group'] as String?,
@@ -113,8 +113,8 @@ class MrPatientApiModel {
       createdAt: (json['created_at'] as String?) ?? '',
       updatedAt: (json['updated_at'] as String?) ?? '',
       appointmentDate: json['appointment_date'] as String?,
-      patientName: (json['patient_name'] as String?) ?? '',
-      phoneNumber: (json['phone_number'] as String?) ?? '',
+      patientName: (json['patient_name'] as String?) ?? (json['first_name'] as String?) ?? '',
+      phoneNumber: (json['phone_number'] as String?) ?? (json['phone'] as String?) ?? '',
       fatherHusbandName: json['father_husband_name'] as String?,
       history: json['history'] != null
           ? (json['history'] as List)

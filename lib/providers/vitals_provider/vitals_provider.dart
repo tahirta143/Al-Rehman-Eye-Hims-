@@ -83,13 +83,13 @@ class VitalsProvider extends ChangeNotifier {
     _doctorName = customDoctor;
     notifyListeners();
 
-    final paddedMr = mrNumber.padLeft(5, '0');
+    final mr = mrNumber.trim();
 
     try {
-      final res = await _mrApiService.fetchPatientByMR(paddedMr);
+      final res = await _mrApiService.fetchPatientByMR(mr);
       if (res.success && res.patient != null) {
         _currentPatient = res.patient!.toPatientModel();
-        await _fetchVitalsHistory(paddedMr, customReceiptId);
+        await _fetchVitalsHistory(mr, customReceiptId);
       } else {
         _errorMessage = res.message ?? 'Patient not found';
       }

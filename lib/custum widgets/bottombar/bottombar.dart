@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
+import '../../core/providers/permission_provider.dart';
+import '../../core/permissions/permission_keys.dart';
 
 class CustomFluidBottomNavBar extends StatefulWidget {
   final int currentIndex;
@@ -27,20 +30,27 @@ class _CustomFluidBottomNavBarState extends State<CustomFluidBottomNavBar>
   late Animation<double> _slideAnim;
   int _prevIndex = 0;
 
-  final List<_NavItem> _items = const [
-    _NavItem(icon: Icons.dashboard_rounded,     label: 'Dashboard'),
-    _NavItem(icon: Icons.warning_amber_rounded, label: 'Emergency'),
-    _NavItem(icon: Icons.chat_bubble_rounded,   label: 'Consult'),
-    _NavItem(icon: Icons.people_alt_rounded,    label: 'MR Details'),
-    _NavItem(icon: Icons.receipt_long_rounded,  label: 'Expenses'),
+  // All possible nav items with their permission requirements
+  static const List<_NavItemDef> _allItems = [
+    _NavItemDef(icon: Icons.dashboard_rounded,     label: 'Dashboard',  drawerIndex: 0,  permissions: []),
+    _NavItemDef(icon: Icons.warning_amber_rounded, label: 'Emergency',  drawerIndex: 5,  permissions: [Perm.emergencyRead, Perm.emergencyCreate]),
+    _NavItemDef(icon: Icons.chat_bubble_rounded,   label: 'Consult',    drawerIndex: 1,  permissions: [Perm.apptRead, Perm.opdPatientRead]),
+    _NavItemDef(icon: Icons.people_alt_rounded,    label: 'MR Details', drawerIndex: 8,  permissions: [Perm.mrRead, Perm.mrCreate]),
+    _NavItemDef(icon: Icons.receipt_long_rounded,  label: 'Expenses',   drawerIndex: 2,  permissions: [Perm.expenseRead, Perm.expenseCreate]),
   ];
+
+  List<_NavItemDef> _visibleItems = [];
 
   @override
   void initState() {
     super.initState();
     _prevIndex = widget.currentIndex;
+    _visibleItems = _allItems; // will be updated in build
+    _initAnimations(_allItems.length);
+  }
 
-    _controllers = List.generate(_items.length, (i) =>
+  void _initAnimations(int count) {
+    _controllers = List.generate(count, (i) =>
         AnimationController(vsync: this, duration: const Duration(milliseconds: 320)));
     _scaleAnims = _controllers.map((c) =>
         Tween<double>(begin: 1.0, end: 1.12).animate(
@@ -51,7 +61,9 @@ class _CustomFluidBottomNavBarState extends State<CustomFluidBottomNavBar>
     _slideAnim = Tween<double>(begin: 0.0, end: 1.0).animate(
         CurvedAnimation(parent: _slideController, curve: Curves.easeOutCubic));
 
-    _controllers[widget.currentIndex].forward();
+    if (widget.currentIndex < _controllers.length) {
+      _controllers[widget.currentIndex].forward();
+    }
     _slideController.value = 1.0;
   }
 
@@ -61,8 +73,8 @@ class _CustomFluidBottomNavBarState extends State<CustomFluidBottomNavBar>
     super.didUpdateWidget(old);
 
     if (old.currentIndex != widget.currentIndex) {
-      _controllers[old.currentIndex].reverse();
-      _controllers[widget.currentIndex].forward();
+      if (old.currentIndex < _controllers.length) _controllers[old.currentIndex].reverse();
+      if (widget.currentIndex < _controllers.length) _controllers[widget.currentIndex].forward();
 
       _prevIndex = old.currentIndex;
 
@@ -80,52 +92,69 @@ class _CustomFluidBottomNavBarState extends State<CustomFluidBottomNavBar>
     super.dispose();
   }
 
-  void _onTap(int index) {
-    if (index == widget.currentIndex) return;
+  void _onTap(int visualIndex) {
+    // Pass the drawerIndex so base_scaffold can navigate directly
+    final drawerIdx = _visibleItems[visualIndex].drawerIndex;
+    if (drawerIdx == widget.currentIndex) return;
     HapticFeedback.lightImpact();
-    widget.onItemSelected(index);
+    widget.onItemSelected(drawerIdx);
   }
 
   @override
   Widget build(BuildContext context) {
+    final perm = context.watch<PermissionProvider>();
+
+    // Build visible items based on permissions
+    final visible = _allItems.where((item) {
+      if (item.permissions.isEmpty) return true; // Dashboard always visible
+      return perm.canAny(item.permissions);
+    }).toList();
+
+    // Re-init animations if item count changed
+    if (visible.length != _visibleItems.length) {
+      for (final c in _controllers) c.dispose();
+      _slideController.dispose();
+      _visibleItems = visible;
+      _initAnimations(visible.length);
+    } else {
+      _visibleItems = visible;
+    }
+
+    final items = _visibleItems;
+    if (items.isEmpty) return const SizedBox.shrink();
+
+    // Find visual index by matching drawerIndex
+    final currentVisualIndex = items.indexWhere((item) => item.drawerIndex == widget.currentIndex);
+    final safeCurrentIndex = currentVisualIndex < 0 ? 0 : currentVisualIndex;
+
     final double width = MediaQuery.of(context).size.width;
-    final double itemWidth = width / _items.length;
-    // Height of the bar below the notch
+    final double itemWidth = width / items.length;
     const double barHeight = 76.0;
-    // How far the circle floats above the bar top
     const double floatOffset = 20.0;
     const double circleSize = 46.0;
 
     return AnimatedBuilder(
       animation: _slideAnim,
       builder: (_, __) {
-        // Interpolate notch center X between prev and current tab
-        final double fromX = _prevIndex * itemWidth + itemWidth / 2;
-        final double toX   = widget.currentIndex * itemWidth + itemWidth / 2;
+        final double fromX = _prevIndex.clamp(0, items.length - 1) * itemWidth + itemWidth / 2;
+        final double toX   = safeCurrentIndex * itemWidth + itemWidth / 2;
         final double notchX = fromX + (toX - fromX) * _slideAnim.value;
 
         return SizedBox(
-          // Extra height at top so the floating circle has room
           height: barHeight + floatOffset + 8,
           child: Stack(
             clipBehavior: Clip.none,
             children: [
-
-              // ── 1. Curved bar (clipped shape) ──
               Positioned(
                 bottom: 0,
                 left: 0,
                 right: 0,
-                child: _buildBar(notchX, itemWidth, barHeight, width),
+                child: _buildBar(notchX, itemWidth, barHeight, width, items, safeCurrentIndex),
               ),
-
-              // ── 2. Floating circle — drawn ON TOP of everything, never clipped ──
               Positioned(
-                // Center the circle horizontally on notchX
                 left: notchX - circleSize / 2,
-                // Float above the bar top
                 top: 0,
-                child: _buildFloatingCircle(circleSize),
+                child: _buildFloatingCircle(circleSize, items, safeCurrentIndex),
               ),
             ],
           ),
@@ -135,22 +164,9 @@ class _CustomFluidBottomNavBarState extends State<CustomFluidBottomNavBar>
   }
 
   // ── Curved white bar with SafeArea ──
-  Widget _buildBar(double notchX, double itemWidth, double barHeight, double width) {
+  Widget _buildBar(double notchX, double itemWidth, double barHeight, double width, List<_NavItemDef> items, int currentIndex) {
     return Container(
-      decoration: BoxDecoration(
-        // boxShadow: [
-        //   BoxShadow(
-        //     color: _primary.withOpacity(0.18),
-        //     blurRadius: 28,
-        //     offset: const Offset(0, -6),
-        //   ),
-        //   BoxShadow(
-        //     color: Colors.black.withOpacity(0.07),
-        //     blurRadius: 12,
-        //     offset: const Offset(0, -2),
-        //   ),
-        // ],
-      ),
+      decoration: const BoxDecoration(),
       child: ClipPath(
         clipper: _CurvedNavClipper(notchCenterX: notchX),
         child: Container(
@@ -161,8 +177,8 @@ class _CustomFluidBottomNavBarState extends State<CustomFluidBottomNavBar>
               height: barHeight,
               child: Row(
                 children: List.generate(
-                  _items.length,
-                      (i) => _buildItem(i, itemWidth),
+                  items.length,
+                  (i) => _buildItem(i, itemWidth, items, currentIndex),
                 ),
               ),
             ),
@@ -173,12 +189,13 @@ class _CustomFluidBottomNavBarState extends State<CustomFluidBottomNavBar>
   }
 
   // ── Teal circle that floats in the notch ──
-  Widget _buildFloatingCircle(double size) {
+  Widget _buildFloatingCircle(double size, List<_NavItemDef> items, int currentIndex) {
+    if (currentIndex >= _controllers.length) return const SizedBox.shrink();
     return AnimatedBuilder(
-      animation: _controllers[widget.currentIndex],
+      animation: _controllers[currentIndex],
       builder: (_, __) {
         return ScaleTransition(
-          scale: _scaleAnims[widget.currentIndex],
+          scale: _scaleAnims[currentIndex],
           child: Container(
             width: size,
             height: size,
@@ -189,18 +206,10 @@ class _CustomFluidBottomNavBarState extends State<CustomFluidBottomNavBar>
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
-              // boxShadow: [
-              //   BoxShadow(
-              //     color: _primary.withOpacity(0.30),
-              //     blurRadius: 18,
-              //     spreadRadius: 0,
-              //     offset: const Offset(0, 6),
-              //   ),
-              // ],
             ),
             child: Center(
               child: Icon(
-                _items[widget.currentIndex].icon,
+                items[currentIndex].icon,
                 color: Colors.white,
                 size: 22,
               ),
@@ -212,9 +221,9 @@ class _CustomFluidBottomNavBarState extends State<CustomFluidBottomNavBar>
   }
 
   // ── Individual nav item (unselected tabs) ──
-  Widget _buildItem(int index, double itemWidth) {
-    final item = _items[index];
-    final isSelected = widget.currentIndex == index;
+  Widget _buildItem(int index, double itemWidth, List<_NavItemDef> items, int currentIndex) {
+    final item = items[index];
+    final isSelected = currentIndex == index;
 
     return GestureDetector(
       onTap: () => _onTap(index),
@@ -224,7 +233,6 @@ class _CustomFluidBottomNavBarState extends State<CustomFluidBottomNavBar>
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // Hide icon for selected tab (it's in the floating circle)
             AnimatedOpacity(
               duration: const Duration(milliseconds: 180),
               opacity: isSelected ? 0.0 : 1.0,
@@ -311,8 +319,10 @@ class _CurvedNavClipper extends CustomClipper<Path> {
       old.notchCenterX != notchCenterX;
 }
 
-class _NavItem {
+class _NavItemDef {
   final IconData icon;
   final String label;
-  const _NavItem({required this.icon, required this.label});
+  final int drawerIndex;
+  final List<String> permissions;
+  const _NavItemDef({required this.icon, required this.label, required this.drawerIndex, required this.permissions});
 }

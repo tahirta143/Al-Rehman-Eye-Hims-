@@ -14,6 +14,8 @@ import '../../custum widgets/animations/animations.dart';
 import 'package:animate_do/animate_do.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../global/global_api.dart';
+import '../../core/providers/permission_provider.dart';
+import '../../core/permissions/permission_keys.dart';
 
 import '../add_expenses/add_expenses.dart';
 import '../cunsultations/cunsultations.dart';
@@ -1363,7 +1365,25 @@ class HomeScreen extends StatelessWidget {
     return BaseScaffold(
       title: 'Dashboard',
       drawerIndex: 0,
-      body: _DashboardBody(),
+      body: Consumer<PermissionProvider>(
+        builder: (context, perm, _) {
+          if (!perm.can(Perm.appDashboardRead)) {
+            return const Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.lock_outline, size: 64, color: Color(0xFFCBD5E0)),
+                  SizedBox(height: 16),
+                  Text('Access Denied', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF4A5568))),
+                  SizedBox(height: 8),
+                  Text('You do not have permission to view the Dashboard.', style: TextStyle(color: Color(0xFF718096))),
+                ],
+              ),
+            );
+          }
+          return const _DashboardBody();
+        },
+      ),
     );
   }
 }

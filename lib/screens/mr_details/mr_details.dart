@@ -4,6 +4,8 @@ import 'package:provider/provider.dart';
 import '../../custum widgets/drawer/base_scaffold.dart';
 import '../../models/mr_model/mr_patient_model.dart';
 import '../../providers/mr_provider/mr_provider.dart';
+import '../../core/providers/permission_provider.dart';
+import '../../core/permissions/permission_keys.dart';
 import '../../custum widgets/custom_loader.dart';
 import '../../custum widgets/animations/animations.dart';
 import 'package:animate_do/animate_do.dart';
@@ -37,8 +39,24 @@ class MrDetailsScreen extends StatelessWidget {
     return BaseScaffold(
       title: 'MR Details',
       drawerIndex: 8,
-      body: CustomPageTransition(
-        child: const _MrDetailsBody(),
+      body: Consumer<PermissionProvider>(
+        builder: (context, perm, _) {
+          if (!perm.canAny([Perm.mrRead, Perm.mrCreate])) {
+            return const Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.lock_outline, size: 64, color: Color(0xFFCBD5E0)),
+                  SizedBox(height: 16),
+                  Text('Access Denied', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF4A5568))),
+                  SizedBox(height: 8),
+                  Text('You do not have permission to view MR Details.', style: TextStyle(color: Color(0xFF718096))),
+                ],
+              ),
+            );
+          }
+          return CustomPageTransition(child: const _MrDetailsBody());
+        },
       ),
     );
   }
@@ -100,7 +118,7 @@ class _MrDetailsBodyState extends State<_MrDetailsBody>
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
     _mrFocusNode.addListener(() {
-      if (!_mrFocusNode.hasFocus && !_isNewPatient) _lookupMr(_mrCtrl.text);
+      if (!_mrFocusNode.hasFocus) _lookupMr(_mrCtrl.text);
     });
 
     // Always fetch latest MR on entry
@@ -193,14 +211,14 @@ class _MrDetailsBodyState extends State<_MrDetailsBody>
   }
 
   // ── Logic ──────────────────────────────────────────────────────────────────
-  Future<void> _lookupMr(String value) async {
+  Future<void> _lookupMr(String value, {bool normalize = false}) async {
     final input = value.trim().replaceAll(RegExp(r'[^0-9]'), '');
     if (input.isEmpty) {
       _clearPatient();
       return;
     }
-    
-    final formatted = input.length < 5 ? input.padLeft(5, '0') : input;
+
+    final formatted = normalize && input.length < 5 ? input.padLeft(5, '0') : input;
     if (formatted != _mrCtrl.text) {
       _mrCtrl.text = formatted;
       _mrCtrl.selection = TextSelection.collapsed(offset: _mrCtrl.text.length);
@@ -212,7 +230,7 @@ class _MrDetailsBodyState extends State<_MrDetailsBody>
     });
 
     final prov = context.read<MrProvider>();
-    final patient = await prov.findByMrNumber(formatted);
+    final patient = await prov.findByMrNumber(formatted, normalize: normalize);
     
     if (!mounted) return;
     setState(() => _isLoading = false);
@@ -221,6 +239,7 @@ class _MrDetailsBodyState extends State<_MrDetailsBody>
       setState(() {
         _patient = patient;
         _isNewPatient = false;
+        _populateRegistrationFields(patient);
       });
       prov.selectPatient(patient);
       if (MediaQuery.of(context).size.width > 820) {
@@ -259,6 +278,39 @@ class _MrDetailsBodyState extends State<_MrDetailsBody>
         });
       }
     });
+  }
+
+  void _populateRegistrationFields(PatientModel p) {
+    _firstCtrl.text = p.firstName;
+    _lastCtrl.text = p.lastName;
+    _guardianCtrl.text = p.guardianName;
+    _ageCtrl.text = p.age?.toString() ?? '';
+    _profCtrl.text = p.profession;
+    _eduCtrl.text = p.education;
+    _phoneCtrl.text = p.phoneNumber;
+    _whatsappCtrl.text = p.whatsappNo;
+    _emailCtrl.text = p.email;
+    _cnicCtrl.text = p.cnic;
+    _addrCtrl.text = p.address;
+    _cityCtrl.text = p.city;
+    
+    if (p.dateOfBirth.isNotEmpty) {
+      try {
+        final parts = p.dateOfBirth.split('-');
+        if (parts.length == 3) {
+           _dob = DateTime(int.parse(parts[0]), int.parse(parts[1]), int.parse(parts[2]));
+        } else {
+           final partsSlash = p.dateOfBirth.split('/');
+           if (partsSlash.length == 3) {
+             _dob = DateTime(int.parse(partsSlash[2]), int.parse(partsSlash[1]), int.parse(partsSlash[0]));
+           }
+        }
+      } catch (_) {}
+    }
+    
+    _relation = p.relation;
+    _gender = p.gender;
+    _bloodGroup = p.bloodGroup;
   }
 
   void _clearRegistrationFields() {
@@ -507,7 +559,7 @@ class _MrDetailsBodyState extends State<_MrDetailsBody>
                 fontWeight: FontWeight.w700,
                 color: (_patient != null || _isNewPatient) ? _tealDark : _textDark,
                 letterSpacing: 0.5),
-            onSubmitted: _lookupMr,
+            onSubmitted: (v) => _lookupMr(v, normalize: true),
             onChanged: (v) {
                // Only reset if we were showing a valid patient
                if (_patient != null) {
@@ -549,7 +601,7 @@ class _MrDetailsBodyState extends State<_MrDetailsBody>
           )
         else
           GestureDetector(
-            onTap: () => _lookupMr(_mrCtrl.text),
+            onTap: () => _lookupMr(_mrCtrl.text, normalize: true),
             child: Container(
               width: 50,
               height: 50,

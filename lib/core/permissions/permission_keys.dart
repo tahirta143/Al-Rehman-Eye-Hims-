@@ -33,6 +33,9 @@ class Perm {
   static const opdReportsRead    = 'OPD.REPORTS.READ';
   static const opdReportsPrint   = 'OPD.REPORTS.PRINT';
 
+  // ─── App ──────────────────────────────────────────
+  static const appDashboardRead  = 'APP.DASHBOARD.READ';
+
   // ─── Appointments ─────────────────────────────────
   static const apptRead    = 'APPOINTMENTS.APPOINTMENT.READ';
   static const apptCreate  = 'APPOINTMENTS.APPOINTMENT.CREATE';
@@ -56,6 +59,15 @@ class Perm {
   static const labCreate = 'LAB.TEST.CREATE';
   static const labUpdate = 'LAB.TEST.UPDATE';
   static const labDelete = 'LAB.TEST.DELETE';
+
+  static const labReceiptRead   = 'LAB.RECEIPT.READ';
+
+  static const labTypeRead      = 'LAB.TYPE.READ';
+  static const labCategoryRead  = 'LAB.CATEGORY.READ';
+  static const labSpecimenRead  = 'LAB.SPECIMEN.READ';
+  static const labAttributeRead = 'LAB.ATTRIBUTE.READ';
+  static const labAttributeGroupRead    = 'LAB.ATTRIBUTE_GROUP.READ';
+  static const labReportingFormatRead   = 'LAB.REPORTING_FORMAT.READ';
 
   // ─── Radiology ────────────────────────────────────
   static const radiologyRead   = 'RADIOLOGY.TEST.READ';
@@ -85,12 +97,43 @@ class Perm {
   static const consultantCreate = 'CONSULTANT.PAYMENT.CREATE';
   static const consultantUpdate = 'CONSULTANT.PAYMENT.UPDATE';
 
+  // ─── Prescription (GP) ────────────────────────────
+  static const prescriptionRead   = 'PRESCRIPTION.RECORD.READ';
+  static const prescriptionCreate = 'PRESCRIPTION.RECORD.CREATE';
+
+  // ─── Prescription (Eye) ───────────────────────────
+  static const eyeRecordRead          = 'PRESCRIPTION.EYE_RECORD.READ';
+  static const eyeRecordUpdate        = 'PRESCRIPTION.EYE_RECORD.UPDATE';
+  static const eyeDiagnosisRead       = 'PRESCRIPTION.EYE_DIAGNOSIS.READ';
+  static const eyeDiagnosisUpdate     = 'PRESCRIPTION.EYE_DIAGNOSIS.UPDATE';
+  static const eyeOptometristRead     = 'PRESCRIPTION.EYE_OPTOMETRIST.READ';
+  static const eyeOptometristUpdate   = 'PRESCRIPTION.EYE_OPTOMETRIST.UPDATE';
+  static const eyeExaminationRead     = 'PRESCRIPTION.EYE_EXAMINATION.READ';
+  static const eyeExaminationUpdate   = 'PRESCRIPTION.EYE_EXAMINATION.UPDATE';
+  static const eyeManagementRead      = 'PRESCRIPTION.EYE_MANAGEMENT.READ';
+  static const eyeManagementUpdate    = 'PRESCRIPTION.EYE_MANAGEMENT.UPDATE';
+  static const eyeMedicinesRead       = 'PRESCRIPTION.EYE_MEDICINES.READ';
+  static const eyeMedicinesUpdate     = 'PRESCRIPTION.EYE_MEDICINES.UPDATE';
+  static const eyeHistoryRead         = 'PRESCRIPTION.EYE_HISTORY.READ';
+
+  // ─── Medicines / Pharmacy ─────────────────────────
+  static const medicineRead   = 'MEDICINES.MEDICINE.READ';
+  static const medicineCreate = 'MEDICINES.MEDICINE.CREATE';
+  static const medicineUpdate = 'MEDICINES.MEDICINE.UPDATE';
+  static const medicineDelete = 'MEDICINES.MEDICINE.DELETE';
+
   // ─── Setup ────────────────────────────────────────
   static const setupDiscountTypeRead   = 'SETUP.DISCOUNT_TYPE.READ';
   static const setupDiscountTypeCreate = 'SETUP.DISCOUNT_TYPE.CREATE';
   static const setupDiscountAuthRead   = 'SETUP.DISCOUNT_AUTHORITY.READ';
   static const setupDiscountAuthCreate = 'SETUP.DISCOUNT_AUTHORITY.CREATE';
   static const setupRefFromRead        = 'SETUP.REFERRED_FROM.READ';
+  static const setupEyeRead            = 'SETUP.EYE.READ';
+
+  // ─── Diagnosis ────────────────────────────────────
+  static const diagnosisDeptRead     = 'DIAGNOSIS.DEPARTMENT.READ';
+  static const diagnosisTypeRead     = 'DIAGNOSIS.TYPE.READ';
+  static const diagnosisQuestionRead = 'DIAGNOSIS.QUESTION.READ';
 
   // ─── Company Settings ─────────────────────────────
   static const companyRead   = 'COMPANY.SETTINGS.READ';
@@ -104,6 +147,7 @@ class Perm {
   static const accessPermsRead     = 'ACCESS.PERMISSIONS.READ';
   static const accessUserGroupsRead    = 'ACCESS.USER_GROUPS.READ';
   static const accessUserGroupsUpdate  = 'ACCESS.USER_GROUPS.UPDATE';
+  static const accessIpRead        = 'ACCESS.IP.READ';
 
   /// Super Admin wildcard — matches everything
   static const wildcard = '*';

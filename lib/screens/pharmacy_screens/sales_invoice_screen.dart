@@ -84,13 +84,7 @@ class _SalesInvoiceScreenState extends State<SalesInvoiceScreen> {
   void _padAndSearchMR() {
     final v = _medNoCtrl.text.trim();
     if (v.isEmpty) return;
-    
-    final padded = v.padLeft(5, '0');
-    if (_medNoCtrl.text != padded) {
-      _medNoCtrl.text = padded;
-    }
-    
-    _handleMrSearch(padded);
+    _handleMrSearch(v);
   }
 
   void _resetEditItem() {

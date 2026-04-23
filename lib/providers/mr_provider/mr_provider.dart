@@ -131,14 +131,14 @@ class MrProvider extends ChangeNotifier {
   }
 
   // ── MR number lookup — always hits API to get full data with history ──
-  Future<PatientModel?> findByMrNumber(String input) async {
+  Future<PatientModel?> findByMrNumber(String input, {bool normalize = false}) async {
     final trimmed = input.trim();
     if (trimmed.isEmpty) return null;
 
-    final normalised = _normalizeMrNumber(trimmed);
+    final searchInput = normalize ? _normalizeMrNumber(trimmed) : trimmed;
 
     // ✅ Always fetch from API so we get visit history
-    final result = await _apiService.fetchPatientByMR(normalised);
+    final result = await _apiService.fetchPatientByMR(searchInput);
 
     if (result.success && result.patient != null) {
       final patient = result.patient!.toPatientModel();

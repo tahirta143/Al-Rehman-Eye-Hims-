@@ -170,17 +170,15 @@ class PrescriptionProvider extends ChangeNotifier {
   }
 
   Future<void> selectConsultationPatient(dynamic patient, {String? department}) async {
-    final mr = patient['patient_mr_number']?.toString() ?? '';
-    final paddedMr = mr.padLeft(5, '0');
+    final mr = patient['patient_mr_number']?.toString().trim() ?? '';
     _receiptId = patient['receipt_id']?.toString();
     _tokenNumber = patient['token_number']?.toString();
     _doctorSrlNo = int.tryParse(patient['doctor_srl_no']?.toString() ?? '');
     _doctorName = patient['doctor_name']?.toString();
     
-    // Update vitality check or similar if needed
     vitalControllers['receiptId']?.text = _receiptId ?? '';
 
-    await searchPatient(paddedMr, department: department);
+    await searchPatient(mr, department: department);
   }
 
   void setMedMode(String mode) {
@@ -221,15 +219,14 @@ class PrescriptionProvider extends ChangeNotifier {
     _currentPatient = null;
     notifyListeners();
 
-    // Pad MR number to 5 digits (Align with React)
-    final paddedMr = mrNumber.padLeft(5, '0');
+    final mr = mrNumber.trim();
 
-    final result = await _mrApiService.fetchPatientByMR(paddedMr);
+    final result = await _mrApiService.fetchPatientByMR(mr);
     if (result.success && result.patient != null) {
       _currentPatient = result.patient!.toPatientModel();
       await fetchDiagnosis(department ?? 'General'); 
-      await fetchVitals(paddedMr, receiptId: _receiptId);
-      await fetchHistory(paddedMr);
+      await fetchVitals(mr, receiptId: _receiptId);
+      await fetchHistory(mr);
     } else {
       _errorMessage = result.message ?? 'Patient not found';
     }

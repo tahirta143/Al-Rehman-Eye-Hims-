@@ -209,7 +209,7 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen> {
       return;
     }
 
-    if (formatted.length >= 4) {
+    if (formatted.isNotEmpty) {
       setState(() {
         _isSearching = true;
         _patientFound = false;
@@ -217,7 +217,7 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen> {
       });
 
       final mrProv = Provider.of<MrProvider>(context, listen: false);
-      final patient = await mrProv.findByMrNumber(formatted);
+      final patient = await mrProv.findByMrNumber(formatted, normalize: false);
 
       if (!mounted) return;
 
