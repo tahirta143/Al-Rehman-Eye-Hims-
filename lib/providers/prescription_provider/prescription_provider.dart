@@ -102,6 +102,9 @@ class PrescriptionProvider extends ChangeNotifier {
   List<PrescriptionInvestigation> _selectedInvestigations = [];
   List<PrescriptionInvestigation> get selectedInvestigations => _selectedInvestigations;
 
+  PrescriptionModel? _lastSavedPrescription;
+  PrescriptionModel? get lastSavedPrescription => _lastSavedPrescription;
+
   List<String> _instructions = [];
   List<String> get instructions => _instructions;
 
@@ -129,7 +132,11 @@ class PrescriptionProvider extends ChangeNotifier {
       'sph': TextEditingController(), 'cyl': TextEditingController(), 
       'axis': TextEditingController(), 'va': TextEditingController(), 'addition': TextEditingController()
     },
-    'add': {
+    'add01': {
+      'sph': TextEditingController(), 'cyl': TextEditingController(), 
+      'axis': TextEditingController(), 'va': TextEditingController(), 'addition': TextEditingController()
+    },
+    'add02': {
       'sph': TextEditingController(), 'cyl': TextEditingController(), 
       'axis': TextEditingController(), 'va': TextEditingController(), 'addition': TextEditingController()
     },
@@ -145,13 +152,25 @@ class PrescriptionProvider extends ChangeNotifier {
   final TextEditingController presentingComplaintsCtrl = TextEditingController();
   List<EyeSideItem> _eyeComplaints = [];
   List<EyeSideItem> _eyeExaminations = [];
+  List<EyeSideItem> _eyeDiagnosis = [];
   List<EyeSideItem> _eyeAdvised = [];
   String _eyeTreatmentType = '';
+  
+  // API Setup Lists
+  List<String> eyeSetupComplaints = [];
+  List<String> eyeSetupExaminations = [];
+  List<String> eyeSetupDiagnosis = [];
+  List<String> eyeSetupAdvised = [];
+  List<String> eyeSetupSurgery = [];
   final TextEditingController eyeRemarksCtrl = TextEditingController();
+  final TextEditingController eyeSurgeryNameCtrl = TextEditingController();
   DateTime? _eyeOperationDate;
+  List<String> _surgerySearchResults = [];
+  List<String> get surgerySearchResults => _surgerySearchResults;
 
   List<EyeSideItem> get eyeComplaints => _eyeComplaints;
   List<EyeSideItem> get eyeExaminations => _eyeExaminations;
+  List<EyeSideItem> get eyeDiagnosis => _eyeDiagnosis;
   List<EyeSideItem> get eyeAdvised => _eyeAdvised;
   String get eyeTreatmentType => _eyeTreatmentType;
   DateTime? get eyeOperationDate => _eyeOperationDate;
@@ -161,12 +180,34 @@ class PrescriptionProvider extends ChangeNotifier {
   Future<void> loadConsultationPatients() async {
     _isLoadingPatients = true;
     notifyListeners();
+    await loadEyeSetupItems();
     final res = await _apiService.fetchConsultationPatients();
     if (res['success'] == true) {
       _consultationPatients = res['data'] ?? [];
     }
     _isLoadingPatients = false;
     notifyListeners();
+  }
+
+  Future<void> loadEyeSetupItems() async {
+    final res = await _apiService.fetchEyeSetupItems('');
+    if (res['success'] == true) {
+      final items = res['data'] as List? ?? [];
+      eyeSetupComplaints.clear();
+      eyeSetupExaminations.clear();
+      eyeSetupDiagnosis.clear();
+      eyeSetupAdvised.clear();
+      eyeSetupSurgery.clear();
+      for (var item in items) {
+        final type = (item['item_type'] ?? '').toString().trim();
+        final name = item['item_name'] ?? '';
+        if (type == 'Complaint') eyeSetupComplaints.add(name);
+        else if (type == 'Examination') eyeSetupExaminations.add(name);
+        else if (type == 'Diagnosis') eyeSetupDiagnosis.add(name);
+        else if (type == 'Advised') eyeSetupAdvised.add(name);
+        else if (type == 'Surgery') eyeSetupSurgery.add(name);
+      }
+    }
   }
 
   Future<void> selectConsultationPatient(dynamic patient, {String? department}) async {
@@ -362,6 +403,7 @@ class PrescriptionProvider extends ChangeNotifier {
     final item = EyeSideItem(name: name, side: side);
     if (listType == 'complaint') _eyeComplaints.add(item);
     else if (listType == 'examination') _eyeExaminations.add(item);
+    else if (listType == 'diagnosis') _eyeDiagnosis.add(item);
     else if (listType == 'advised') _eyeAdvised.add(item);
     notifyListeners();
   }
@@ -369,6 +411,7 @@ class PrescriptionProvider extends ChangeNotifier {
   void removeEyeItem(String listType, int index) {
     if (listType == 'complaint') _eyeComplaints.removeAt(index);
     else if (listType == 'examination') _eyeExaminations.removeAt(index);
+    else if (listType == 'diagnosis') _eyeDiagnosis.removeAt(index);
     else if (listType == 'advised') _eyeAdvised.removeAt(index);
     notifyListeners();
   }
@@ -396,16 +439,16 @@ class PrescriptionProvider extends ChangeNotifier {
     };
 
     final prescription = PrescriptionModel(
-      mrNumber: _currentPatient!.mrNumber,
-      doctorName: _doctorName ?? doctorName,
-      doctorSrlNo: _doctorSrlNo ?? (doctorSrlNo ?? 1),
-      vitals: vitals,
+      mrNumber: _currentPatient?.mrNumber ?? '',
+      doctorName: doctorName,
+      doctorSrlNo: doctorSrlNo,
       receiptId: _receiptId,
-      historyExamination: noteControllers['history']!.text,
-      treatment: noteControllers['treatment']!.text,
-      consultantNotes: noteControllers['notes']!.text,
-      remarks: noteControllers['remarks']!.text,
-      referTo: noteControllers['referTo']!.text,
+      vitals: vitalControllers.map((key, controller) => MapEntry(key, controller.text)),
+      historyExamination: isEye ? (presentingComplaintsCtrl.text.isEmpty ? null : presentingComplaintsCtrl.text) : (noteControllers['history']?.text.isEmpty ?? true ? null : noteControllers['history']!.text),
+      treatment: isEye ? (_eyeTreatmentType.isEmpty ? null : _eyeTreatmentType) : (noteControllers['treatment']?.text.isEmpty ?? true ? null : noteControllers['treatment']!.text),
+      remarks: isEye ? (eyeRemarksCtrl.text.isEmpty ? null : eyeRemarksCtrl.text) : (noteControllers['remarks']?.text.isEmpty ?? true ? null : noteControllers['remarks']!.text),
+      consultantNotes: noteControllers['notes']?.text.isEmpty ?? true ? null : noteControllers['notes']!.text,
+      referTo: noteControllers['referTo']?.text.isEmpty ?? true ? null : noteControllers['referTo']!.text,
       medicines: _prescribedMedicines,
       investigations: _selectedInvestigations,
       instructions: _instructions,
@@ -421,9 +464,26 @@ class PrescriptionProvider extends ChangeNotifier {
     final res = await _apiService.savePrescription(prescription.toJson());
     
     _isSaving = false;
+    final bool isSuccess = res['success'] == true || res['status'] == true;
+    
+    if (isSuccess) {
+      _lastSavedPrescription = prescription;
+      clearForm();
+    }
+    
     notifyListeners();
+    return isSuccess;
+  }
 
-    return res['success'] == true;
+  void updateSurgerySearch(String query) {
+    if (query.isEmpty) {
+      _surgerySearchResults = [];
+    } else {
+      _surgerySearchResults = eyeSetupSurgery
+          .where((s) => s.toLowerCase().contains(query.toLowerCase()))
+          .toList();
+    }
+    notifyListeners();
   }
 
   EyePrescriptionDetails _buildEyeDetails() {
@@ -432,16 +492,19 @@ class PrescriptionProvider extends ChangeNotifier {
       otherHistory: eyeOtherHistoryCtrl.text,
       rightRefraction: _getRefraction('right'),
       leftRefraction: _getRefraction('left'),
-      addRefraction: _getRefraction('add'),
+      add01Refraction: _getRefraction('add01'),
+      add02Refraction: _getRefraction('add02'),
       rightVision: _getVision('right'),
       leftVision: _getVision('left'),
       presentingComplaints: presentingComplaintsCtrl.text,
       complaints: _eyeComplaints,
       examinations: _eyeExaminations,
+      diagnosis: _eyeDiagnosis,
       advised: _eyeAdvised,
       treatmentType: _eyeTreatmentType,
       remarks: eyeRemarksCtrl.text,
-      operationDate: _eyeOperationDate?.toIso8601String(),
+      operationDate: _eyeOperationDate?.toString().split(' ')[0],
+      surgeryName: eyeSurgeryNameCtrl.text.isEmpty ? null : eyeSurgeryNameCtrl.text,
     );
   }
 
@@ -480,6 +543,23 @@ class PrescriptionProvider extends ChangeNotifier {
     _medMode = 'medicine';
     _medicineSearchResults = [];
     _medSearchQuery = '';
+    _eyeComplaints = [];
+    _eyeExaminations = [];
+    _eyeDiagnosis = [];
+    _eyeAdvised = [];
+    _eyeTreatmentType = '';
+    _eyeOperationDate = null;
+    eyeOtherHistoryCtrl.clear();
+    presentingComplaintsCtrl.clear();
+    eyeRemarksCtrl.clear();
+    for (var side in refractionCtrls.values) {
+      for (var ctrl in side.values) ctrl.clear();
+    }
+    for (var side in visionCtrls.values) {
+      for (var ctrl in side.values) ctrl.clear();
+    }
+    eyeHistory.updateAll((key, value) => false);
+    
     notifyListeners();
   }
 }

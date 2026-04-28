@@ -178,7 +178,8 @@ class EyePrescriptionDetails {
   // Refraction
   RefractionMatrix rightRefraction;
   RefractionMatrix leftRefraction;
-  RefractionMatrix addRefraction;
+  RefractionMatrix add01Refraction;
+  RefractionMatrix add02Refraction;
 
   // Vision
   VisionStats rightVision;
@@ -190,26 +191,31 @@ class EyePrescriptionDetails {
   List<EyeSideItem> examinations;
 
   // Management
+  List<EyeSideItem> diagnosis;
   List<EyeSideItem> advised;
   String treatmentType;
   String remarks;
   String? operationDate;
+  String? surgeryName;
 
   EyePrescriptionDetails({
     required this.history,
     this.otherHistory = '',
     required this.rightRefraction,
     required this.leftRefraction,
-    required this.addRefraction,
+    required this.add01Refraction,
+    required this.add02Refraction,
     required this.rightVision,
     required this.leftVision,
     this.presentingComplaints = '',
     required this.complaints,
     required this.examinations,
+    required this.diagnosis,
     required this.advised,
     this.treatmentType = '',
     this.remarks = '',
     this.operationDate,
+    this.surgeryName,
   });
 
   Map<String, dynamic> toJson() => {
@@ -219,7 +225,8 @@ class EyePrescriptionDetails {
       'refraction': {
         'right': rightRefraction.toJson(),
         'left': leftRefraction.toJson(),
-        'add': addRefraction.toJson(),
+        'add01': add01Refraction.toJson(),
+        'add02': add02Refraction.toJson(),
       },
       'vision': {
         'right': rightVision.toJson(),
@@ -232,10 +239,12 @@ class EyePrescriptionDetails {
       'examinations': examinations.map((e) => e.toJson()).toList(),
     },
     'management': {
+      'diagnosis': diagnosis.map((e) => e.toJson()).toList(),
       'advised': advised.map((e) => e.toJson()).toList(),
       'treatmentType': treatmentType,
       'remarks': remarks,
       'operationDate': operationDate,
+      'surgeryName': surgeryName,
     },
   };
 }
@@ -253,10 +262,10 @@ class PrescriptionModel {
   final Map<String, String> vitals;
 
   // Notes
-  final String historyExamination;
-  final String treatment;
-  final String consultantNotes;
-  final String remarks;
+  final String? historyExamination;
+  final String? treatment;
+  final String? consultantNotes;
+  final String? remarks;
   final String? referTo;
 
   // Lists
@@ -275,10 +284,10 @@ class PrescriptionModel {
     this.doctorSrlNo,
     this.receiptId,
     required this.vitals,
-    this.historyExamination = '',
-    this.treatment = '',
-    this.consultantNotes = '',
-    this.remarks = '',
+    this.historyExamination,
+    this.treatment,
+    this.consultantNotes,
+    this.remarks,
     this.referTo,
     required this.medicines,
     required this.investigations,
@@ -288,6 +297,7 @@ class PrescriptionModel {
   });
 
   Map<String, dynamic> toJson() => {
+    'prescription_id': id,
     'mr_number': mrNumber,
     'doctor_name': doctorName,
     'doctor_srl_no': doctorSrlNo,
