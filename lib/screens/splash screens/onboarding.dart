@@ -1,7 +1,15 @@
-import 'package:flutter/material.dart';
-
+﻿import 'package:flutter/material.dart';
+import 'package:animate_do/animate_do.dart';
 import '../auth/login.dart';
 
+// ── App Primary Color ─────────────────────────────────────────────────────────
+const Color _kPrimary = Color(0xFF00B5AD);
+
+const Color _kBg = Color(0xFFF4F8F8);
+const Color _kNavy = Color(0xFF1A2E2D);
+const Color _kSub = Color(0xFF6B8A89);
+
+// ── Data Model ────────────────────────────────────────────────────────────────
 class OnboardingData {
   final String title;
   final String subtitle;
@@ -16,22 +24,23 @@ class OnboardingData {
 
 const List<OnboardingData> onboardingPages = [
   OnboardingData(
-    title: 'Find Your Trusted\nSpecialist',
-    subtitle: 'A wide network of certified doctors and specialists',
-    imagePath: 'assets/images/onboard4.png',
+    title: 'Al-Rehman\nEye Hospital',
+    subtitle: 'Providing world-class ophthalmic care with advanced technology and expert surgeons.',
+    imagePath: 'assets/images/doctor2.png',
   ),
   OnboardingData(
-    title: 'Consult Anytime,\nAnywhere',
-    subtitle: 'Connect with medical experts instantly via video call.',
+    title: 'Advanced Vision\nDiagnostics',
+    subtitle: 'From Cataract to Vitreo-Retinal care, we offer comprehensive eye health solutions.',
     imagePath: 'assets/images/onboard2.png',
   ),
   OnboardingData(
-    title: 'Easy Appointment\nBooking',
-    subtitle: 'Schedule your visit with just a few taps, anytime.',
-    imagePath: 'assets/images/onboard3.png',
+    title: 'Your Vision,\nOur Priority',
+    subtitle: 'Schedule your eye check-up instantly and experience personalised patient care.',
+    imagePath: 'assets/images/dotor.png',
   ),
 ];
 
+// ── Screen ────────────────────────────────────────────────────────────────────
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
 
@@ -46,16 +55,24 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   void _nextPage() {
     if (_currentPage < onboardingPages.length - 1) {
       _pageController.nextPage(
-        duration: const Duration(milliseconds: 400),
-        curve: Curves.easeInOut,
+        duration: const Duration(milliseconds: 500),
+        curve: Curves.easeInOutCubic,
       );
     } else {
-      // Last page → navigate to login/home
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const SignInScreen()),
-      );
+      _navigateToLogin();
     }
+  }
+
+  void _navigateToLogin() {
+    Navigator.pushReplacement(
+      context,
+      PageRouteBuilder(
+        transitionDuration: const Duration(milliseconds: 600),
+        pageBuilder: (_, __, ___) => const SignInScreen(),
+        transitionsBuilder: (_, anim, __, child) =>
+            FadeTransition(opacity: anim, child: child),
+      ),
+    );
   }
 
   @override
@@ -66,239 +83,234 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // ── MediaQuery ─────────────────────────────────────────────────────────
-    final mq        = MediaQuery.of(context);
-    final screenH   = mq.size.height;
-    final screenW   = mq.size.width;
-
-    // Responsive values derived from screen dimensions - REDUCED ALL VALUES
-    final hPad            = screenW * 0.06;    // horizontal page padding (keep same)
-    final cardRadius      = screenW * 0.04;    // REDUCED border radius
-    final titleFontSize   = screenW * 0.048;   // REDUCED font size (was 0.062)
-    final subtitleFontSize= screenW * 0.03;    // REDUCED font size (was 0.036)
-    final cardHPad        = screenW * 0.04;    // REDUCED horizontal padding (was 0.06)
-    final cardVPad        = screenH * 0.016;   // REDUCED vertical padding (was 0.026)
-    final gapBelowCard    = screenH * 0.015;   // REDUCED gap (was 0.025)
-    final dotBarH         = screenH * 0.05;    // REDUCED dot bar height (was 0.07)
-    final dotH            = screenH * 0.008;   // REDUCED dot height (was 0.011)
-    final dotActiveW      = screenW * 0.045;   // REDUCED active dot width (was 0.065)
-    final dotInactiveW    = screenW * 0.015;   // REDUCED inactive dot width (was 0.022)
-    final titleSubtitleGap = screenH * 0.006;  // ADDED smaller gap between title and subtitle
-    final bottomPadding    = screenH * 0.01;   // ADDED smaller bottom padding
-    // ───────────────────────────────────────────────────────────────────────
-
     return Scaffold(
-      backgroundColor: const Color(0xFFF2F2F2), // light-grey app bg
-      body: SafeArea(
-        child: Column(
-          children: [
-            // ── PageView ───────────────────────────────────────────────────
-            Expanded(
-              child: PageView.builder(
-                controller: _pageController,
-                onPageChanged: (i) => setState(() => _currentPage = i),
-                itemCount: onboardingPages.length,
-                itemBuilder: (context, index) {
-                  return _OnboardingPage(
-                    data: onboardingPages[index],
-                    hPad: hPad,
-                    cardRadius: cardRadius,
-                    cardHPad: cardHPad,
-                    cardVPad: cardVPad,
-                    gapBelowCard: gapBelowCard,
-                    titleFontSize: titleFontSize,
-                    subtitleFontSize: subtitleFontSize,
-                    screenH: screenH,
-                    titleSubtitleGap: titleSubtitleGap,
-                    bottomPadding: bottomPadding,
-                    onTap: _nextPage,
-                  );
-                },
-              ),
-            ),
-
-            // ── Dot Indicators ─────────────────────────────────────────────
-            SizedBox(
-              height: dotBarH,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: List.generate(
-                  onboardingPages.length,
-                      (i) => _DotIndicator(
-                    isActive: i == _currentPage,
-                    activeW: dotActiveW,
-                    inactiveW: dotInactiveW,
-                    height: dotH,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ── Single Onboarding Page ─────────────────────────────────────────────────────
-class _OnboardingPage extends StatelessWidget {
-  final OnboardingData data;
-  final double hPad;
-  final double cardRadius;
-  final double cardHPad;
-  final double cardVPad;
-  final double gapBelowCard;
-  final double titleFontSize;
-  final double subtitleFontSize;
-  final double screenH;
-  final double titleSubtitleGap;
-  final double bottomPadding;
-  final VoidCallback onTap;
-
-  const _OnboardingPage({
-    required this.data,
-    required this.hPad,
-    required this.cardRadius,
-    required this.cardHPad,
-    required this.cardVPad,
-    required this.gapBelowCard,
-    required this.titleFontSize,
-    required this.subtitleFontSize,
-    required this.screenH,
-    required this.titleSubtitleGap,
-    required this.bottomPadding,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.symmetric(horizontal: hPad),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+      backgroundColor: _kBg,
+      body: Column(
         children: [
-          // ── White Speech-Bubble Card (Tappable) ─────────────────────────
-          GestureDetector(
-            onTap: onTap,
-            child: Container(
-              padding: EdgeInsets.symmetric(
-                horizontal: cardHPad,
-                vertical: cardVPad,
-              ),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(cardRadius),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.06),
-                    blurRadius: 10, // REDUCED blur radius
-                    offset: const Offset(0, 2), // REDUCED offset
-                  ),
-                ],
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min, // ADDED - makes card take minimum height
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Text(
-                    data.title,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: titleFontSize,
-                      fontWeight: FontWeight.w800,
-                      color: const Color(0xFF00B5AD),
-                      height: 1.2, // REDUCED line height (was 1.3)
-                    ),
-                  ),
-                  SizedBox(height: titleSubtitleGap), // USING smaller gap
-                  Text(
-                    data.subtitle,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: subtitleFontSize,
-                      color: const Color(0xFFAAAAAA),
-                      height: 1.3, // REDUCED line height (was 1.55)
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-
-          SizedBox(height: gapBelowCard),
-
-          // ── Grey Image Placeholder (Tappable) ───────────────────────────
+          // ── Top teal header with image ────────────────────────────────
           Expanded(
-            child: GestureDetector(
-              onTap: onTap,
-              child: Container(
-                decoration: BoxDecoration(
-                  color: const Color(0xFFDFDFDF),
-                  borderRadius: BorderRadius.circular(cardRadius),
+            flex: 6,
+            child: Stack(
+              children: [
+                // Teal background with curved bottom
+                Container(
+                  width: double.infinity,
+                  decoration: const BoxDecoration(
+                    color: _kPrimary,
+                    borderRadius: BorderRadius.only(
+                      bottomLeft: Radius.circular(40),
+                      bottomRight: Radius.circular(40),
+                    ),
+                  ),
                 ),
-                clipBehavior: Clip.hardEdge,
-                child: _AssetImageWithFallback(imagePath: data.imagePath),
-              ),
+
+                // Subtle circle decoration top-right
+                Positioned(
+                  top: -30,
+                  right: -30,
+                  child: Container(
+                    width: 160,
+                    height: 160,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.white.withOpacity(0.07),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  top: 60,
+                  right: 30,
+                  child: Container(
+                    width: 60,
+                    height: 60,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.white.withOpacity(0.1),
+                    ),
+                  ),
+                ),
+
+                // Content: logo + image
+                SafeArea(
+                  child: Column(
+                    children: [
+                      // Hospital badge
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 38,
+                              height: 38,
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.2),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Image.asset("assets/images/eye4.png")
+                            ),
+                            const SizedBox(width: 10),
+                            const Text(
+                              'Al-Rehman Eye Hospital',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 15,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0.2,
+                              ),
+                            ),
+                            const Spacer(),
+                            // Skip
+                            GestureDetector(
+                              onTap: _navigateToLogin,
+                              child: Text(
+                                'Skip',
+                                style: TextStyle(
+                                  color: Colors.white.withOpacity(0.8),
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      // Large image
+                      Expanded(
+                        child: PageView.builder(
+                          controller: _pageController,
+                          onPageChanged: (i) => setState(() => _currentPage = i),
+                          itemCount: onboardingPages.length,
+                          itemBuilder: (_, index) {
+                            return FadeInUp(
+                              duration: const Duration(milliseconds: 600),
+                              child: Padding(
+                                padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+                                child: Image.asset(
+                                  onboardingPages[index].imagePath,
+                                  fit: BoxFit.contain,
+                                  errorBuilder: (_, __, ___) => const Icon(
+                                    Icons.remove_red_eye_rounded,
+                                    size: 120,
+                                    color: Colors.white70,
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ),
 
-          SizedBox(height: bottomPadding), // USING smaller bottom padding
+          // ── Bottom white content card ─────────────────────────────────
+          Expanded(
+            flex: 4,
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.fromLTRB(28, 32, 28, 24),
+              color: _kBg,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Page indicators
+                  Row(
+                    children: List.generate(
+                      onboardingPages.length,
+                      (i) => _Dot(isActive: i == _currentPage),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+
+                  // Title
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 350),
+                    child: Text(
+                      onboardingPages[_currentPage].title,
+                      key: ValueKey<int>(_currentPage),
+                      style: const TextStyle(
+                        fontSize: 28,
+                        fontWeight: FontWeight.w800,
+                        color: _kNavy,
+                        height: 1.2,
+                        letterSpacing: -0.5,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+
+                  // Subtitle
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 350),
+                    child: Text(
+                      onboardingPages[_currentPage].subtitle,
+                      key: ValueKey<String>(onboardingPages[_currentPage].subtitle),
+                      style: const TextStyle(
+                        fontSize: 14,
+                        color: _kSub,
+                        height: 1.6,
+                      ),
+                    ),
+                  ),
+
+                  const Spacer(),
+
+                  // CTA button
+                  SizedBox(
+                    width: double.infinity,
+                    height: 52,
+                    child: ElevatedButton(
+                      onPressed: _nextPage,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: _kPrimary,
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      child: Text(
+                        _currentPage == onboardingPages.length - 1
+                            ? 'Get Started'
+                            : 'Next',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ],
       ),
     );
   }
 }
 
-// ── Asset Image with Grey Fallback ────────────────────────────────────────────
-class _AssetImageWithFallback extends StatelessWidget {
-  final String imagePath;
-  const _AssetImageWithFallback({required this.imagePath});
-
-  @override
-  Widget build(BuildContext context) {
-    return Image.asset(
-      imagePath,
-      fit: BoxFit.cover,
-      errorBuilder: (_, __, ___) {
-        return Container(
-          color: const Color(0xFFDFDFDF),
-          child: const Center(
-            child: Icon(
-              Icons.image_outlined,
-              size: 40, // REDUCED icon size (was 64)
-              color: Color(0xFFBBBBBB),
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
-
 // ── Dot Indicator ─────────────────────────────────────────────────────────────
-class _DotIndicator extends StatelessWidget {
+class _Dot extends StatelessWidget {
   final bool isActive;
-  final double activeW;
-  final double inactiveW;
-  final double height;
 
-  const _DotIndicator({
-    required this.isActive,
-    required this.activeW,
-    required this.inactiveW,
-    required this.height,
-  });
+  const _Dot({required this.isActive});
 
   @override
   Widget build(BuildContext context) {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
-      margin: EdgeInsets.symmetric(horizontal: inactiveW * 0.25), // REDUCED margin
-      width: isActive ? activeW : inactiveW,
-      height: height,
+      curve: Curves.easeInOut,
+      margin: const EdgeInsets.only(right: 6),
+      width: isActive ? 24 : 8,
+      height: 8,
       decoration: BoxDecoration(
-        color: isActive ? const Color(0xFF00B5AD) : const Color(0xFFD0D0D0),
-        borderRadius: BorderRadius.circular(height / 2),
+        color: isActive ? _kPrimary : const Color(0xFFBFD8D6),
+        borderRadius: BorderRadius.circular(4),
       ),
     );
   }

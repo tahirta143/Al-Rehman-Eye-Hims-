@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/services/pdf_eye_prescription_service.dart';
 import '../../core/services/prescription_api_service.dart';
 import '../../core/services/mr_api_service.dart';
 import '../../core/services/vitals_api_service.dart';
@@ -67,8 +68,8 @@ class PrescriptionProvider extends ChangeNotifier {
   List<dynamic> _consultationPatients = [];
   List<dynamic> get consultationPatients => _consultationPatients;
 
-  List<dynamic> _prescriptionHistory = [];
-  List<dynamic> get prescriptionHistory => _prescriptionHistory;
+  List<PrescriptionModel> _prescriptionHistory = [];
+  List<PrescriptionModel> get prescriptionHistory => _prescriptionHistory;
 
   // ─── Tests State ──────────────────────────────────────────────────
   List<dynamic> _labTests = [];
@@ -305,7 +306,8 @@ class PrescriptionProvider extends ChangeNotifier {
     notifyListeners();
     final res = await _apiService.fetchPrescriptionHistory(mrNumber);
     if (res['success'] == true) {
-      _prescriptionHistory = res['data'] ?? [];
+      final List raw = res['data'] ?? [];
+      _prescriptionHistory = raw.map((e) => PrescriptionModel.fromJson(e)).toList();
     }
     _isLoadingHistory = false;
     notifyListeners();
@@ -424,6 +426,12 @@ class PrescriptionProvider extends ChangeNotifier {
   void setOperationDate(DateTime date) {
     _eyeOperationDate = date;
     notifyListeners();
+  }
+
+  Future<void> printOldPrescription(BuildContext context, PrescriptionModel rx) async {
+    if (_currentPatient != null) {
+      await PDFEyePrescriptionService.printPrescription(rx, _currentPatient!);
+    }
   }
 
   // ─── Submission ──────────────────────────────────────────────────

@@ -1,4 +1,6 @@
-import 'package:flutter/material.dart';
+import 'dart:convert';
+
+import 'package:flutter/cupertino.dart';
 
 // ─── GP Prescription Models ──────────────────────────────────────────────────
 
@@ -82,12 +84,14 @@ class PrescriptionDiagnosis {
   final int questionId;
   final String questionText;
   final String? answerText;
+  final String? answerDisplay;
   final dynamic answerValue;
 
   PrescriptionDiagnosis({
     required this.questionId,
     required this.questionText,
     this.answerText,
+    this.answerDisplay,
     this.answerValue,
   });
 
@@ -95,8 +99,17 @@ class PrescriptionDiagnosis {
     'question_id': questionId,
     'question_text': questionText,
     'answer_text': answerText,
+    'answer_display': answerDisplay,
     'answer_value': answerValue,
   };
+
+  factory PrescriptionDiagnosis.fromJson(Map<String, dynamic> json) => PrescriptionDiagnosis(
+    questionId: json['question_id'] ?? 0,
+    questionText: json['question_text'] ?? '',
+    answerText: json['answer_text'],
+    answerDisplay: json['answer_display'],
+    answerValue: json['answer_value'] ?? json['answer_options'],
+  );
 }
 
 // ─── Eye Prescription Models ─────────────────────────────────────────────────
@@ -125,11 +138,11 @@ class RefractionMatrix {
   };
 
   factory RefractionMatrix.fromJson(Map<String, dynamic> json) => RefractionMatrix(
-    sph: json['sph'] ?? '',
-    cyl: json['cyl'] ?? '',
-    axis: json['axis'] ?? '',
-    va: json['va'] ?? '',
-    addition: json['addition'] ?? '',
+    sph: (json['sph'] ?? '').toString(),
+    cyl: (json['cyl'] ?? '').toString(),
+    axis: (json['axis'] ?? '').toString(),
+    va: (json['va'] ?? '').toString(),
+    addition: (json['addition'] ?? '').toString(),
   );
 }
 
@@ -151,9 +164,9 @@ class VisionStats {
   };
 
   factory VisionStats.fromJson(Map<String, dynamic> json) => VisionStats(
-    varValue: json['var'] ?? '',
-    ph: json['ph'] ?? '',
-    ref: json['ref'] ?? '',
+    varValue: (json['var'] ?? '').toString(),
+    ph: (json['ph'] ?? '').toString(),
+    ref: (json['ref'] ?? '').toString(),
   );
 }
 
@@ -166,8 +179,8 @@ class EyeSideItem {
   Map<String, dynamic> toJson() => {'name': name, 'side': side};
 
   factory EyeSideItem.fromJson(Map<String, dynamic> json) => EyeSideItem(
-    name: json['name'] ?? '',
-    side: json['side'] ?? 'B',
+    name: (json['name'] ?? '').toString(),
+    side: (json['side'] ?? 'B').toString(),
   );
 }
 
@@ -247,6 +260,34 @@ class EyePrescriptionDetails {
       'surgeryName': surgeryName,
     },
   };
+
+  factory EyePrescriptionDetails.fromJson(Map<String, dynamic> json) {
+    final opto = json['optometrist'] as Map<String, dynamic>? ?? {};
+    final exam = json['examination'] as Map<String, dynamic>? ?? {};
+    final mang = json['management'] as Map<String, dynamic>? ?? {};
+    final refr = opto['refraction'] as Map<String, dynamic>? ?? {};
+    final visi = opto['vision'] as Map<String, dynamic>? ?? {};
+
+    return EyePrescriptionDetails(
+      history: Map<String, bool>.from(opto['history'] ?? {}),
+      otherHistory: opto['otherHistory'] ?? '',
+      rightRefraction: RefractionMatrix.fromJson(refr['right'] ?? {}),
+      leftRefraction: RefractionMatrix.fromJson(refr['left'] ?? {}),
+      add01Refraction: RefractionMatrix.fromJson(refr['add01'] ?? refr['add'] ?? refr['ADD'] ?? {}),
+      add02Refraction: RefractionMatrix.fromJson(refr['add02'] ?? {}),
+      rightVision: VisionStats.fromJson(visi['right'] ?? {}),
+      leftVision: VisionStats.fromJson(visi['left'] ?? {}),
+      presentingComplaints: exam['presentingComplaints'] ?? '',
+      complaints: (exam['complaints'] as List? ?? []).map((e) => EyeSideItem.fromJson(e)).toList(),
+      examinations: (exam['examinations'] as List? ?? []).map((e) => EyeSideItem.fromJson(e)).toList(),
+      diagnosis: (mang['diagnosis'] as List? ?? []).map((e) => EyeSideItem.fromJson(e)).toList(),
+      advised: (mang['advised'] as List? ?? []).map((e) => EyeSideItem.fromJson(e)).toList(),
+      treatmentType: mang['treatmentType'] ?? '',
+      remarks: mang['remarks'] ?? '',
+      operationDate: mang['operationDate'],
+      surgeryName: mang['surgeryName'],
+    );
+  }
 }
 
 // ─── Main Prescription Model ─────────────────────────────────────────────────
@@ -257,6 +298,7 @@ class PrescriptionModel {
   final String doctorName;
   final int? doctorSrlNo;
   final String? receiptId;
+  final String? createdAt;
   
   // Vitals
   final Map<String, String> vitals;
@@ -283,6 +325,7 @@ class PrescriptionModel {
     required this.doctorName,
     this.doctorSrlNo,
     this.receiptId,
+    this.createdAt,
     required this.vitals,
     this.historyExamination,
     this.treatment,
@@ -302,6 +345,7 @@ class PrescriptionModel {
     'doctor_name': doctorName,
     'doctor_srl_no': doctorSrlNo,
     'receipt_id': receiptId,
+    'created_at': createdAt,
     'vitals': vitals,
     'history_examination': historyExamination,
     'treatment': treatment,
@@ -314,4 +358,40 @@ class PrescriptionModel {
     'diagnosis': diagnosis.map((e) => e.toJson()).toList(),
     'eye_details': eyeDetails?.toJson(),
   };
+
+  factory PrescriptionModel.fromJson(Map<String, dynamic> json) {
+    dynamic rawEye = json['eye_details'];
+    EyePrescriptionDetails? eye;
+    if (rawEye != null) {
+      if (rawEye is String) {
+        try {
+          eye = EyePrescriptionDetails.fromJson(jsonDecode(rawEye));
+        } catch (e) {
+          debugPrint('Error decoding eye_details string: $e');
+        }
+      } else if (rawEye is Map<String, dynamic>) {
+        eye = EyePrescriptionDetails.fromJson(rawEye);
+      }
+    }
+
+    return PrescriptionModel(
+      id: json['id'] ?? json['prescription_id'],
+      mrNumber: json['mr_number'] ?? '',
+      doctorName: json['doctor_name'] ?? '',
+      doctorSrlNo: json['doctor_srl_no'],
+      receiptId: json['receipt_id'],
+      createdAt: json['created_at'],
+      vitals: Map<String, String>.from(json['vitals'] ?? {}),
+      historyExamination: json['history_examination'],
+      treatment: json['treatment'],
+      consultantNotes: json['consultant_notes'],
+      remarks: json['remarks'],
+      referTo: json['refer_to'],
+      medicines: (json['medicines'] as List? ?? []).map((e) => PrescriptionMedicine.fromJson(e)).toList(),
+      investigations: (json['investigations'] as List? ?? []).map((e) => PrescriptionInvestigation.fromJson(e)).toList(),
+      instructions: List<String>.from(json['instructions'] ?? []),
+      diagnosis: (json['diagnosis_answers'] as List? ?? []).map((e) => PrescriptionDiagnosis.fromJson(e)).toList(),
+      eyeDetails: eye,
+    );
+  }
 }

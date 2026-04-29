@@ -130,18 +130,15 @@ class _SignInScreenState extends State<SignInScreen> {
                       height: logoSize,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: Colors.white.withOpacity(0.20),
+                        color: Colors.white.withOpacity(0.20)
                       ),
                       child: Center(
-                        child: CustomPaint(
-                          size: Size(logoIconSize, logoIconSize),
-                          painter: _BandagePainter(),
-                        ),
+                        child: Image.asset("assets/images/eye4.png")
                       ),
                     ),
-                    SizedBox(height: screenH * 0.012),
+                    // SizedBox(height: screenH * 0.01),
                     Text(
-                      'HIMS',
+                      'Al-Rehman Eye',
                       style: TextStyle(
                         fontSize: screenW * 0.055,
                         fontWeight: FontWeight.bold,

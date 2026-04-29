@@ -1561,38 +1561,357 @@ class _OldVisitsTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (provider.isLoadingHistory) return const Center(child: CircularProgressIndicator());
-    if (provider.prescriptionHistory.isEmpty) return const Center(child: Text('No previous visits found.'));
+    if (provider.isLoadingHistory) {
+      return const Padding(
+        padding: EdgeInsets.all(32.0),
+        child: Center(child: CircularProgressIndicator(color: kTeal)),
+      );
+    }
+
+    if (provider.prescriptionHistory.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32.0),
+          child: Column(
+            children: [
+              Icon(Icons.history, size: 48, color: kTextMid.withOpacity(0.3)),
+              const SizedBox(height: 12),
+              Text(
+                provider.currentPatient != null ? 'No previous visits found.' : 'Search a patient to see history',
+                style: TextStyle(color: kTextMid.withOpacity(0.6), fontSize: 13),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
 
     return ListView.separated(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       padding: const EdgeInsets.all(16),
       itemCount: provider.prescriptionHistory.length,
-      separatorBuilder: (context, index) => const SizedBox(height: 12),
+      separatorBuilder: (context, index) => const SizedBox(height: 16),
       itemBuilder: (context, index) {
-        final h = provider.prescriptionHistory[index];
-        return Card(
-          elevation: 0,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10), side: const BorderSide(color: kBorder)),
-          child: ExpansionTile(
-            title: Text(h['created_at']?.split('T')[0] ?? '', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
-            subtitle: Text('Dr. ${h['doctor_name'] ?? 'N/A'}', style: const TextStyle(fontSize: 11, color: kTextMid)),
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(12.0),
-                child: Column(
+        final rx = provider.prescriptionHistory[index];
+        return _OldVisitCard(rx: rx, provider: provider);
+      },
+    );
+  }
+}
+
+class _OldVisitCard extends StatelessWidget {
+  final PrescriptionModel rx;
+  final PrescriptionProvider provider;
+  const _OldVisitCard({required this.rx, required this.provider});
+
+  String _formatSideItems(List<EyeSideItem>? items) {
+    if (items == null || items.isEmpty) return '';
+    return items.map((e) => '${e.name} (${e.side})').join(', ');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final eye = rx.eyeDetails;
+    final history = <String>[];
+    if (eye != null) {
+      eye.history.forEach((key, val) {
+        if (val) history.add(key);
+      });
+      if (eye.otherHistory.isNotEmpty) history.add(eye.otherHistory);
+    }
+
+    final hasOptometrist = eye != null &&
+        ([eye.rightRefraction, eye.leftRefraction, eye.add01Refraction, eye.add02Refraction].any((r) =>
+                r.sph.isNotEmpty ||
+                r.cyl.isNotEmpty ||
+                r.axis.isNotEmpty ||
+                r.va.isNotEmpty ||
+                r.addition.isNotEmpty) ||
+            [eye.rightVision, eye.leftVision].any((v) => v.varValue.isNotEmpty || v.ph.isNotEmpty || v.ref.isNotEmpty));
+
+    return Container(
+      decoration: BoxDecoration(
+        color: kWhite,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: kBorder),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 4)],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            decoration: BoxDecoration(
+              color: kBg.withOpacity(0.8),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+              border: const Border(bottom: BorderSide(color: kBorder)),
+            ),
+            child: Row(
+              children: [
+                Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    if (h['history_examination'] != null) Text('History: ${h['history_examination']}', style: const TextStyle(fontSize: 12)),
-                    if (h['treatment'] != null) Text('Treatment: ${h['treatment']}', style: const TextStyle(fontSize: 12)),
+                    Text(
+                      rx.createdAt != null ? rx.createdAt!.split('T')[0] : 'No Date',
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: kTextDark),
+                    ),
+                    Text(
+                      'Dr. ${rx.doctorName}',
+                      style: const TextStyle(fontSize: 10, color: kTextMid),
+                    ),
                   ],
                 ),
-              ),
-            ],
+                const Spacer(),
+                if (rx.receiptId != null)
+                  Text('Receipt: ${rx.receiptId}',
+                      style: const TextStyle(fontSize: 10, color: kTextMid, fontStyle: FontStyle.italic)),
+                const SizedBox(width: 12),
+                ElevatedButton.icon(
+                  onPressed: () => provider.printOldPrescription(context, rx),
+                  icon: const Icon(Icons.print, size: 12),
+                  label: const Text('Print', style: TextStyle(fontSize: 10)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: kWhite,
+                    foregroundColor: kTeal,
+                    elevation: 0,
+                    side: const BorderSide(color: kTeal),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                  ),
+                ),
+              ],
+            ),
           ),
-        );
-      },
+
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // History
+                if (history.isNotEmpty) ...[
+                  _sectionTitle('History'),
+                  Text(history.join(', '), style: const TextStyle(fontSize: 11, color: kTextDark)),
+                  const SizedBox(height: 12),
+                ],
+
+                // Grid for main details
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (rx.historyExamination != null || (eye?.presentingComplaints.isNotEmpty ?? false))
+                      Expanded(
+                        child: _infoBox('Presenting Complaints', eye?.presentingComplaints ?? rx.historyExamination ?? ''),
+                      ),
+                    if (rx.treatment != null || (eye?.treatmentType.isNotEmpty ?? false)) ...[
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: _infoBox('Treatment', eye?.treatmentType ?? rx.treatment ?? ''),
+                      ),
+                    ],
+                  ],
+                ),
+
+                if ((eye?.surgeryName?.isNotEmpty ?? false) || (eye?.remarks.isNotEmpty ?? false)) ...[
+                  const SizedBox(height: 8),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (eye?.surgeryName?.isNotEmpty ?? false)
+                        Expanded(
+                            child: _infoBox('Surgery',
+                                '${eye!.surgeryName}${eye.operationDate != null ? " | ${eye.operationDate}" : ""}')),
+                      if (eye?.remarks != null && eye!.remarks.isNotEmpty) ...[
+                        const SizedBox(width: 8),
+                        Expanded(child: _infoBox('Remarks', eye.remarks)),
+                      ],
+                    ],
+                  ),
+                ],
+
+                // Questionnaire
+                if (rx.diagnosis.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  _sectionTitle('Questionnaire Diagnosis'),
+                  ...rx.diagnosis.map((d) => Padding(
+                        padding: const EdgeInsets.only(bottom: 2),
+                        child: RichText(
+                          text: TextSpan(
+                            style: const TextStyle(fontSize: 11, color: kTextDark),
+                            children: [
+                              TextSpan(text: '${d.questionText}: ', style: const TextStyle(fontWeight: FontWeight.bold)),
+                              TextSpan(text: d.answerText ?? (d.answerValue?.toString() ?? '-')),
+                            ],
+                          ),
+                        ),
+                      )),
+                ],
+
+                // Side Items Grid
+                if (eye != null &&
+                    (eye.complaints.isNotEmpty ||
+                        eye.examinations.isNotEmpty ||
+                        eye.diagnosis.isNotEmpty ||
+                        eye.advised.isNotEmpty)) ...[
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      if (eye.complaints.isNotEmpty) _sideItemsBox('Complaints', eye.complaints),
+                      if (eye.examinations.isNotEmpty) _sideItemsBox('Examinations', eye.examinations),
+                      if (eye.diagnosis.isNotEmpty) _sideItemsBox('Diagnosis / Disease', eye.diagnosis),
+                      if (eye.advised.isNotEmpty) _sideItemsBox('Advised', eye.advised),
+                    ],
+                  ),
+                ],
+
+                // Optometrist
+                if (hasOptometrist) ...[
+                  const SizedBox(height: 12),
+                  _sectionTitle('Optometrist Details'),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(child: _optometristSide('Right Eye', eye!.rightRefraction, eye.rightVision)),
+                      const SizedBox(width: 8),
+                      Expanded(child: _optometristSide('Left Eye', eye.leftRefraction, eye.leftVision)),
+                    ],
+                  ),
+                ],
+
+                // Investigations
+                if (rx.investigations.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  _sectionTitle('Investigations'),
+                  Wrap(
+                    spacing: 6,
+                    children: rx.investigations
+                        .map((inv) => Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                  color: kBg, borderRadius: BorderRadius.circular(4), border: Border.all(color: kBorder)),
+                              child: Text(inv.testName,
+                                  style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: kTeal)),
+                            ))
+                        .toList(),
+                  ),
+                ],
+
+                // Medicines
+                if (rx.medicines.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  _sectionTitle('Medicines'),
+                  ...rx.medicines.map((m) => Padding(
+                        padding: const EdgeInsets.only(bottom: 2),
+                        child: RichText(
+                          text: TextSpan(
+                            style: const TextStyle(fontSize: 11, color: kTextDark),
+                            children: [
+                              TextSpan(text: m.medicineName, style: const TextStyle(fontWeight: FontWeight.bold)),
+                              TextSpan(
+                                  text:
+                                      ' | M:${m.morning.toInt()} A:${m.afternoon.toInt()} E:${m.evening.toInt()} N:${m.night.toInt()} | ${m.forDays} Days',
+                                  style: const TextStyle(color: kTextMid)),
+                            ],
+                          ),
+                        ),
+                      )),
+                ],
+
+                // Instructions
+                if (rx.instructions.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  _sectionTitle('Instructions'),
+                  ...rx.instructions.map((ins) => Text('• $ins', style: const TextStyle(fontSize: 11, color: kTextDark))),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _sectionTitle(String title) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Text(title.toUpperCase(),
+          style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: kTextMid, letterSpacing: 1.1)),
+    );
+  }
+
+  Widget _infoBox(String label, String content) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+          color: kBg.withOpacity(0.5), borderRadius: BorderRadius.circular(8), border: Border.all(color: kBorder)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label.toUpperCase(), style: const TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: kTextMid)),
+          const SizedBox(height: 2),
+          Text(content, style: const TextStyle(fontSize: 11, color: kTextDark)),
+        ],
+      ),
+    );
+  }
+
+  Widget _sideItemsBox(String label, List<EyeSideItem> items) {
+    return Container(
+      width: 170, // Fixed width for wrap
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+          color: kBg.withOpacity(0.5), borderRadius: BorderRadius.circular(8), border: Border.all(color: kBorder)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label.toUpperCase(), style: const TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: kTextMid)),
+          const SizedBox(height: 2),
+          Text(_formatSideItems(items), style: const TextStyle(fontSize: 10, color: kTextDark)),
+        ],
+      ),
+    );
+  }
+
+  Widget _optometristSide(String label, RefractionMatrix ref, VisionStats vis) {
+    final refStr = [
+      if (ref.sph.isNotEmpty) 'Sph ${ref.sph}',
+      if (ref.cyl.isNotEmpty) 'Cyl ${ref.cyl}',
+      if (ref.axis.isNotEmpty) 'Axis ${ref.axis}',
+      if (ref.va.isNotEmpty) 'VA ${ref.va}',
+      if (ref.addition.isNotEmpty) 'Add ${ref.addition}',
+    ].join(', ');
+
+    final visStr = [
+      if (vis.varValue.isNotEmpty) 'VAR ${vis.varValue}',
+      if (vis.ph.isNotEmpty) 'PH ${vis.ph}',
+      if (vis.ref.isNotEmpty) 'REF ${vis.ref}',
+    ].join(', ');
+
+    return Container(
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+          color: kBg.withOpacity(0.5), borderRadius: BorderRadius.circular(8), border: Border.all(color: kBorder)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label.toUpperCase(), style: const TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: kTeal)),
+          if (refStr.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text('Refraction: $refStr', style: const TextStyle(fontSize: 10, color: kTextDark)),
+          ],
+          if (visStr.isNotEmpty) ...[
+            const SizedBox(height: 2),
+            Text('Vision: $visStr', style: const TextStyle(fontSize: 10, color: kTextDark)),
+          ],
+        ],
+      ),
     );
   }
 }

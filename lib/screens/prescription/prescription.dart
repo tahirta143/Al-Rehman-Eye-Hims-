@@ -1365,6 +1365,8 @@ class _OldVisitsTabState extends State<_OldVisitsTab> {
     } catch (_) { return raw; }
   }
 
+  bool _isUrdu(String text) => RegExp(r'[\u0600-\u06FF]').hasMatch(text);
+
   @override
   Widget build(BuildContext context) {
     final provider = widget.provider;
@@ -1394,22 +1396,22 @@ class _OldVisitsTabState extends State<_OldVisitsTab> {
             icon: Icons.description_outlined,
             color: const Color(0xFF2563EB),
             entries: visits.where((v) =>
-              (v['history_examination'] ?? '').toString().isNotEmpty ||
-              (v['treatment'] ?? '').toString().isNotEmpty ||
-              (v['consultant_notes'] ?? '').toString().isNotEmpty ||
-              (v['remarks'] ?? '').toString().isNotEmpty
+              (v.historyExamination ?? '').toString().isNotEmpty ||
+              (v.treatment ?? '').toString().isNotEmpty ||
+              (v.consultantNotes ?? '').toString().isNotEmpty ||
+              (v.remarks ?? '').toString().isNotEmpty
             ).toList(),
             contentBuilder: (v) => Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if ((v['history_examination'] ?? '').toString().isNotEmpty)
-                  _labelValue('History', v['history_examination']),
-                if ((v['treatment'] ?? '').toString().isNotEmpty)
-                  _labelValue('Treatment', v['treatment']),
-                if ((v['consultant_notes'] ?? '').toString().isNotEmpty)
-                  _labelValue('Notes', v['consultant_notes']),
-                if ((v['remarks'] ?? '').toString().isNotEmpty)
-                  _labelValue('Remarks', v['remarks']),
+                if ((v.historyExamination ?? '').toString().isNotEmpty)
+                  _labelValue('History', v.historyExamination),
+                if ((v.treatment ?? '').toString().isNotEmpty)
+                  _labelValue('Treatment', v.treatment),
+                if ((v.consultantNotes ?? '').toString().isNotEmpty)
+                  _labelValue('Notes', v.consultantNotes),
+                if ((v.remarks ?? '').toString().isNotEmpty)
+                  _labelValue('Remarks', v.remarks),
               ],
             ),
           ),
@@ -1422,16 +1424,16 @@ class _OldVisitsTabState extends State<_OldVisitsTab> {
             icon: Icons.assignment_outlined,
             color: const Color(0xFF9333EA),
             entries: visits.where((v) {
-              final ans = v['diagnosis_answers'];
-              return ans != null && ans is List && ans.isNotEmpty;
+              final ans = v.diagnosis;
+              return ans.isNotEmpty;
             }).toList(),
             contentBuilder: (v) {
-              final answers = v['diagnosis_answers'] as List;
+              final answers = v.diagnosis;
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: answers.map<Widget>((ans) {
-                  final qText = ans['question_text'] ?? 'Q#${ans['question_id']}';
-                  final aText = (ans['answer_display'] ?? ans['answer_text'] ?? '—').toString();
+                  final qText = ans.questionText.isNotEmpty ? ans.questionText : 'Q#${ans.questionId}';
+                  final aText = (ans.answerDisplay ?? ans.answerText ?? ans.answerValue ?? '—').toString();
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 2),
                     child: RichText(text: TextSpan(
@@ -1455,11 +1457,11 @@ class _OldVisitsTabState extends State<_OldVisitsTab> {
             icon: Icons.science_outlined,
             color: const Color(0xFF059669),
             entries: visits.where((v) {
-              final inv = v['investigations'];
-              return inv != null && inv is List && inv.isNotEmpty;
+              final inv = v.investigations;
+              return inv.isNotEmpty;
             }).toList(),
             contentBuilder: (v) {
-              final invs = v['investigations'] as List;
+              final invs = v.investigations;
               return Wrap(
                 spacing: 6,
                 runSpacing: 4,
@@ -1471,8 +1473,8 @@ class _OldVisitsTabState extends State<_OldVisitsTab> {
                     border: Border.all(color: const Color(0xFFA7F3D0)),
                   ),
                   child: Text.rich(TextSpan(children: [
-                    TextSpan(text: inv['test_name'] ?? '', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w500, color: Color(0xFF065F46))),
-                    TextSpan(text: ' (${inv['investigation_type'] ?? ''})', style: const TextStyle(fontSize: 9, color: Color(0xFF6EE7B7))),
+                    TextSpan(text: inv.testName, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w500, color: Color(0xFF065F46))),
+                    TextSpan(text: ' (${inv.investigationType})', style: const TextStyle(fontSize: 9, color: Color(0xFF6EE7B7))),
                   ])),
                 )).toList(),
               );
@@ -1487,11 +1489,11 @@ class _OldVisitsTabState extends State<_OldVisitsTab> {
             icon: Icons.medication_outlined,
             color: const Color(0xFFD97706),
             entries: visits.where((v) {
-              final meds = v['medicines'];
-              return meds != null && meds is List && meds.isNotEmpty;
+              final meds = v.medicines;
+              return meds.isNotEmpty;
             }).toList(),
             contentBuilder: (v) {
-              final meds = v['medicines'] as List;
+              final meds = v.medicines;
               return Table(
                 columnWidths: const {
                   0: FixedColumnWidth(24),
@@ -1523,15 +1525,15 @@ class _OldVisitsTabState extends State<_OldVisitsTab> {
                         Padding(
                           padding: const EdgeInsets.symmetric(vertical: 2),
                           child: Text.rich(TextSpan(children: [
-                            TextSpan(text: m['medicine_name'] ?? '', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Color(0xFF1F2937))),
-                            if (m['is_formula'] == true) const TextSpan(text: ' (F)', style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: Color(0xFF16A34A))),
+                            TextSpan(text: m.medicineName, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Color(0xFF1F2937))),
+                            if (m.isFormula) const TextSpan(text: ' (F)', style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: Color(0xFF16A34A))),
                           ])),
                         ),
-                        _medCell('${m['morning'] ?? '-'}'),
-                        _medCell('${m['afternoon'] ?? '-'}'),
-                        _medCell('${m['evening'] ?? '-'}'),
-                        _medCell('${m['night'] ?? '-'}'),
-                        _medCell('${m['for_days'] ?? '-'}'),
+                        _medCell(m.morning > 0 ? '${m.morning}' : '-'),
+                        _medCell(m.afternoon > 0 ? '${m.afternoon}' : '-'),
+                        _medCell(m.evening > 0 ? '${m.evening}' : '-'),
+                        _medCell(m.night > 0 ? '${m.night}' : '-'),
+                        _medCell(m.forDays.isNotEmpty ? m.forDays : '-'),
                       ],
                     );
                   }),
@@ -1548,23 +1550,18 @@ class _OldVisitsTabState extends State<_OldVisitsTab> {
             icon: Icons.checklist_outlined,
             color: const Color(0xFFE11D48),
             entries: visits.where((v) {
-              final inst = v['instructions'];
-              if (inst == null) return false;
-              if (inst is List) return inst.isNotEmpty;
-              if (inst is String) {
-                try { final parsed = List.from(inst as dynamic); return parsed.isNotEmpty; } catch (_) { return false; }
-              }
-              return false;
+              final inst = v.instructions;
+              return inst.isNotEmpty;
             }).toList(),
             contentBuilder: (v) {
-              List<dynamic> arr;
-              final raw = v['instructions'];
-              if (raw is List) { arr = raw; } else { try { arr = List.from(raw as dynamic); } catch (_) { arr = []; } }
+              final arr = v.instructions;
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: arr.map<Widget>((inst) => Padding(
                   padding: const EdgeInsets.only(bottom: 2),
-                  child: Text('• $inst', style: const TextStyle(fontSize: 11, color: Color(0xFF374151))),
+                  child: Text('• $inst', 
+                    textAlign: _isUrdu(inst) ? TextAlign.right : TextAlign.left,
+                    style: const TextStyle(fontSize: 11, color: Color(0xFF374151))),
                 )).toList(),
               );
             },
@@ -1644,11 +1641,11 @@ class _OldVisitsTabState extends State<_OldVisitsTab> {
                       children: [
                         Icon(Icons.calendar_today, size: 10, color: color.withOpacity(0.7)),
                         const SizedBox(width: 4),
-                        Text(_fmtDate(v['created_at']?.toString()), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF1F2937))),
+                        Text(_fmtDate(v.createdAt), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF1F2937))),
                         const SizedBox(width: 6),
                         Text('—', style: TextStyle(fontSize: 10, color: Colors.grey.shade400)),
                         const SizedBox(width: 6),
-                        Text(v['doctor_name'] != null ? 'Dr. ${v['doctor_name']}' : '', style: TextStyle(fontSize: 10, color: Colors.grey.shade500)),
+                        Text(v.doctorName.isNotEmpty ? 'Dr. ${v.doctorName}' : '', style: TextStyle(fontSize: 10, color: Colors.grey.shade500)),
                       ],
                     ),
                     const SizedBox(height: 6),
