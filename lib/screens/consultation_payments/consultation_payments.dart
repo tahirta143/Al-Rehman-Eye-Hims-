@@ -763,8 +763,8 @@ class _ConsultantPaymentsScreenState extends State<ConsultantPaymentsScreen> {
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text('Doctor', style: TextStyle(fontSize: _fsXS, color: Colors.grey.shade400)),
             Text(record.doctorName, style: TextStyle(fontSize: _fsS, fontWeight: FontWeight.bold, color: isCancelled ? Colors.orange.shade700 : Colors.black87)),
-            if (record.paymentShare > 0)
-              Text('Share: ${record.paymentShare}%', style: TextStyle(fontSize: _fsXS, color: Colors.grey.shade300)),
+            Text(record.shareType == 'fixed' ? 'Share: Fixed' : 'Share: ${record.paymentShare}%', 
+              style: TextStyle(fontSize: _fsXS, color: Colors.grey.shade400)),
           ])),
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text('Patient', style: TextStyle(fontSize: _fsXS, color: Colors.grey.shade400)),
@@ -829,9 +829,8 @@ class _ConsultantPaymentsScreenState extends State<ConsultantPaymentsScreen> {
                   fontStyle: isCancelled ? FontStyle.italic : FontStyle.normal,
                 ),
                 maxLines: 1, overflow: TextOverflow.ellipsis),
-            if (record.paymentShare > 0)
-              Text('Share: ${record.paymentShare}%',
-                  style: TextStyle(fontSize: _fsXS, color: Colors.grey.shade400)),
+            Text(record.shareType == 'fixed' ? 'Share: Fixed' : 'Share: ${record.paymentShare}%',
+                style: TextStyle(fontSize: _fsXS, color: Colors.grey.shade400)),
           ]),
         ),
         // Patient

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/services/consultation_api_service.dart';
+import '../../../core/services/opd_receipt_api_service.dart';
 import '../../../models/consultation_model/doctor_model.dart';
 import '../../../models/consultation_model/appointment_model.dart';
 
@@ -8,13 +9,18 @@ import '../../../models/consultation_model/appointment_model.dart';
 // ─────────────────────────────────────────────
 class ConsultationProvider extends ChangeNotifier {
   final ConsultationApiService _apiService = ConsultationApiService();
+  final OpdReceiptApiService _opdApiService = OpdReceiptApiService();
+
+  // ── Service Doctor Mappings ──
+  Map<String, dynamic> _serviceDocs = {};
+  String? _consultationSrlNo;
 
   // ── State ──
   bool _isLoading = false;
   bool _isLoadingAppointments = false;
   bool _isLoadingHistory = false;
   String? _errorMessage;
-  
+
   bool get isLoading => _isLoading;
   bool get isLoadingAppointments => _isLoadingAppointments;
   bool get isLoadingHistory => _isLoadingHistory;
@@ -36,6 +42,21 @@ class ConsultationProvider extends ChangeNotifier {
     _errorMessage = null;
     notifyListeners();
 
+    final mappingsResult = await _apiService.fetchServiceDoctorMappings();
+    final opdServicesResult = await _opdApiService.fetchOpdServices();
+
+    if (mappingsResult.success && mappingsResult.data != null) {
+      _serviceDocs = mappingsResult.data!;
+    }
+    if (opdServicesResult.success) {
+      for (var s in opdServicesResult.services) {
+        if (s.serviceName.toLowerCase().contains('consultation')) {
+          _consultationSrlNo = s.srlNo.toString();
+          break;
+        }
+      }
+    }
+
     final result = await _apiService.fetchDoctors(isPublic: isPublic);
 
     if (result.success) {
@@ -45,7 +66,36 @@ class ConsultationProvider extends ChangeNotifier {
         final appointmentCount = _appointments
             .where((a) => a.consultantName == 'Dr. ${doctor.doctorName}')
             .length;
-        return doctor.toDoctorInfo(totalAppointments: appointmentCount);
+
+        // Parity Fix: Resolve dynamic fees
+        double fee = double.tryParse(doctor.consultationFee) ?? 0.0;
+        double followUpFee = (fee * 0.7).floorToDouble();
+
+        final lookupKey = _consultationSrlNo ?? 'Consultation';
+        if (_serviceDocs.containsKey(lookupKey)) {
+          final mappings = _serviceDocs[lookupKey] as List<dynamic>;
+          final match = mappings.firstWhere(
+            (m) => m['doctor_srl_no'].toString() == doctor.srlNo.toString(),
+            orElse: () => null,
+          );
+          if (match != null) {
+            if (match['rate'] != null) {
+              fee = double.tryParse(match['rate'].toString()) ?? fee;
+            }
+            final fUpDays = int.tryParse(match['followup_days']?.toString() ?? '0') ?? 0;
+            if (fUpDays > 0) {
+              followUpFee = 0;
+            } else {
+              followUpFee = (fee * 0.7).floorToDouble();
+            }
+          }
+        }
+
+        return doctor.toDoctorInfo(
+          totalAppointments: appointmentCount,
+          customFee: fee.toStringAsFixed(0),
+          customFollowUp: followUpFee.toStringAsFixed(0),
+        );
       }).toList();
       _errorMessage = null;
     } else {
@@ -83,7 +133,7 @@ class ConsultationProvider extends ChangeNotifier {
       _appointments = result.appointments.map((appointment) {
         // Find hospital name from doctor
         final doctor = _doctors.firstWhere(
-          (d) => d.id == appointment.doctorSrlNo.toString(),
+              (d) => d.id == appointment.doctorSrlNo.toString(),
           orElse: () => DoctorInfo(
             id: '',
             name: '',
@@ -123,7 +173,7 @@ class ConsultationProvider extends ChangeNotifier {
     if (result.success) {
       _patientHistory = result.appointments.map((appointment) {
         final doctor = _doctors.firstWhere(
-          (d) => d.id == appointment.doctorSrlNo.toString(),
+              (d) => d.id == appointment.doctorSrlNo.toString(),
           orElse: () => DoctorInfo(
             id: '',
             name: '',
@@ -193,7 +243,7 @@ class ConsultationProvider extends ChangeNotifier {
     // Find doctor srl_no from doctor name
     final doctorName = appointment.consultantName.replaceAll('Dr. ', '');
     final doctor = _doctors.firstWhere(
-      (d) => d.name.contains(doctorName),
+          (d) => d.name.contains(doctorName),
       orElse: () => _doctors.first,
     );
 
@@ -242,7 +292,7 @@ class ConsultationProvider extends ChangeNotifier {
     // Find doctor srl_no
     final doctorName = appointment.consultantName.replaceAll('Dr. ', '');
     final doctor = _doctors.firstWhere(
-      (d) => d.name.contains(doctorName),
+          (d) => d.name.contains(doctorName),
       orElse: () => _doctors.first,
     );
     final doctorSrlNo = int.tryParse(doctor.id) ?? 0;

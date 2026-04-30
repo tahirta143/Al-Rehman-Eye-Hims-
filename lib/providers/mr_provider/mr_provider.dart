@@ -159,10 +159,7 @@ class MrProvider extends ChangeNotifier {
   }
 
   String _normalizeMrNumber(String input) {
-    final asInt = int.tryParse(input);
-    return asInt != null
-        ? asInt.toString().padLeft(5, '0')
-        : input.toUpperCase();
+    return input.trim();
   }
 
   // ── State mutations ──

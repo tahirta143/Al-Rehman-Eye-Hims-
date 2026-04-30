@@ -38,6 +38,7 @@ class OpdService {
   final String name;
   final String category;
   final double price;
+  final double? followUpPrice;
   final IconData icon;
   final Color color;
   final String? imageUrl;
@@ -47,6 +48,7 @@ class OpdService {
     required this.name,
     required this.category,
     required this.price,
+    this.followUpPrice,
     required this.icon,
     required this.color,
     this.imageUrl,
@@ -133,6 +135,23 @@ class OpdProvider extends ChangeNotifier {
   set isSaving(bool value) {
     _isSaving = value;
     notifyListeners();
+  }
+
+  // ── Service Doctor Mappings ──
+  Map<String, dynamic> _serviceDocs = {};
+  Map<String, dynamic> get serviceDocs => _serviceDocs;
+  String? _consultationSrlNo;
+
+  Future<void> fetchServiceMappings() async {
+    try {
+      final res = await _consultationApi.fetchServiceDoctorMappings();
+      if (res.success && res.data != null) {
+        _serviceDocs = res.data!;
+        _safeNotify();
+      }
+    } catch (e) {
+      debugPrint('Error fetching service mappings: $e');
+    }
   }
 
   // ── Refer to Discount ──
@@ -331,6 +350,11 @@ class OpdProvider extends ChangeNotifier {
           final head = s.serviceHead.toLowerCase();
           final name = s.serviceName.toLowerCase();
 
+          // Parity Fix: Identify the Consultation service srl_no for mapping lookups
+          if (name.contains('consultation')) {
+            _consultationSrlNo = s.srlNo.toString();
+          }
+
           // Categorize based on strings for standard OPD services
           if (head.contains('x-ray') || head.contains('xray') || name.contains('x-ray') || name.contains('xray')) {
             category = 'xray'; color = const Color(0xFF1E88E5); icon = Icons.radio_rounded;
@@ -435,6 +459,10 @@ class OpdProvider extends ChangeNotifier {
   // ── Load Doctors ──
   Future<void> loadDoctors() async {
     try {
+      await fetchServiceMappings();
+      if (_consultationSrlNo == null) {
+        await loadOpdServices();
+      }
       final result = await _consultationApi.fetchDoctors();
 
       if (_isDisposed) return; // CRASH FIX
@@ -454,7 +482,33 @@ class OpdProvider extends ChangeNotifier {
             .map((entry) {
           final i = entry.key;
           final d = entry.value;
-          final fee = double.tryParse(d.consultationFee) ?? 0.0;
+          double fee = double.tryParse(d.consultationFee) ?? 0.0;
+          
+          // Parity Fix: Resolve dynamic consultation fee from mappings using srl_no
+          // Mirroring React's resolveConsultationPricing logic
+          double followUpFee = (fee * 0.7).floorToDouble();
+          
+          final lookupKey = _consultationSrlNo ?? 'Consultation';
+          if (_serviceDocs.containsKey(lookupKey)) {
+            final mappings = _serviceDocs[lookupKey] as List<dynamic>;
+            final match = mappings.firstWhere(
+              (m) => m['doctor_srl_no'].toString() == d.srlNo.toString(),
+              orElse: () => null,
+            );
+            if (match != null) {
+              if (match['rate'] != null) {
+                fee = double.tryParse(match['rate'].toString()) ?? fee;
+              }
+              // Check for free follow-up period (followup_days > 0)
+              final fUpDays = int.tryParse(match['followup_days']?.toString() ?? '0') ?? 0;
+              if (fUpDays > 0) {
+                followUpFee = 0;
+              } else {
+                followUpFee = (fee * 0.7).floorToDouble();
+              }
+            }
+          }
+
           final spec = d.doctorSpecialization.isNotEmpty ? ' (${d.doctorSpecialization})' : '';
           final imageUrl = d.imageUrl;
           if (imageUrl != null && imageUrl.isNotEmpty) {
@@ -464,6 +518,7 @@ class OpdProvider extends ChangeNotifier {
           return OpdService(
             id: d.doctorId, name: 'Dr. ${d.doctorName}$spec',
             category: 'consultation', price: fee,
+            followUpPrice: followUpFee,
             icon: Icons.person_rounded, color: colors[i % colors.length],
             imageUrl: imageUrl,
           );
@@ -767,6 +822,101 @@ class OpdProvider extends ChangeNotifier {
     _safeNotify();
   }
 
+  // ── Share Calculation Logic ──
+  Map<String, dynamic> calculateServiceShare(OpdSelectedService s) {
+    double drShareAmount = 0;
+    double drSharePercentage = 0;
+    String shareType = 'percentage';
+    final lineTotal = s.service.price * s.quantity;
+
+    if (s.service.category == 'consultation') {
+      // Find doctor info
+      DoctorModel? doc;
+      try {
+        doc = _availableDoctorModels.firstWhere(
+          (d) => d.srlNo.toString() == s.doctorSrlNo,
+        );
+      } catch (_) {
+        try {
+          doc = _availableDoctorModels.firstWhere((d) => d.doctorId == s.service.id);
+        } catch (_) {
+          if (_availableDoctorModels.isNotEmpty) doc = _availableDoctorModels.first;
+        }
+      }
+
+      if (doc != null) {
+        shareType = 'percentage';
+        drSharePercentage = double.tryParse(doc.doctorShare) ?? 100.0;
+
+        final lookupKey = _consultationSrlNo ?? 'Consultation';
+        if (_serviceDocs.containsKey(lookupKey)) {
+          final mappings = _serviceDocs[lookupKey] as List<dynamic>;
+          final config = mappings.firstWhere(
+            (m) => m['doctor_srl_no'].toString() == s.doctorSrlNo,
+            orElse: () => null,
+          );
+
+          if (config != null) {
+            shareType = config['share_type'] ?? 'percentage';
+            if (shareType == 'fixed') {
+              drShareAmount = (double.tryParse(config['share_value'].toString()) ?? 0.0) * s.quantity;
+              drSharePercentage = 0;
+            } else {
+              drSharePercentage = double.tryParse(config['share_value'].toString()) ?? 0.0;
+              drShareAmount = lineTotal * (drSharePercentage / 100.0);
+            }
+          } else {
+            drShareAmount = lineTotal * (drSharePercentage / 100.0);
+          }
+        } else {
+          drShareAmount = lineTotal * (drSharePercentage / 100.0);
+        }
+      }
+    } else {
+      // Other services (Lab, Xray etc)
+      // Check if doctor is assigned and if there's a mapping
+      String serviceLookupId = s.service.id;
+      // Parity Fix: Strip internal prefixes for mapping lookups
+      if (serviceLookupId.startsWith('LB_')) serviceLookupId = serviceLookupId.substring(3);
+      if (serviceLookupId.startsWith('RD_')) serviceLookupId = serviceLookupId.substring(3);
+
+      if (s.doctorSrlNo != null && _serviceDocs.containsKey(serviceLookupId)) {
+        final mappings = _serviceDocs[serviceLookupId] as List<dynamic>;
+        final config = mappings.firstWhere(
+          (m) => m['doctor_srl_no'].toString() == s.doctorSrlNo,
+          orElse: () => null,
+        );
+
+        if (config != null) {
+          shareType = config['share_type'] ?? 'percentage';
+          if (shareType == 'fixed') {
+            drShareAmount = (double.tryParse(config['share_value'].toString()) ?? 0.0) * s.quantity;
+            drSharePercentage = 0;
+          } else {
+            drSharePercentage = double.tryParse(config['share_value'].toString()) ?? 0.0;
+            drShareAmount = lineTotal * (drSharePercentage / 100.0);
+          }
+        }
+      }
+    }
+
+    return {
+      'drSharePercentage': drSharePercentage,
+      'drShareAmount': drShareAmount,
+      'shareType': shareType,
+    };
+  }
+
+  double get totalDrShareAmount {
+    return _selectedServices.fold(0.0, (sum, s) {
+      return sum + (calculateServiceShare(s)['drShareAmount'] as double);
+    });
+  }
+
+  double get totalHospitalShareAmount {
+    return servicesTotal - totalDrShareAmount;
+  }
+
   bool get hasEmergencyService =>
       _selectedServices.any((s) => s.service.category == 'emergency');
 
@@ -863,23 +1013,39 @@ class OpdProvider extends ChangeNotifier {
     final consSvc = services.where((s) => s.service.category == 'consultation').toList();
     if (consSvc.isNotEmpty) firstDoctorId = consSvc.first.service.id;
 
-    double avgDrShare = consSvc.isNotEmpty ? 100.0 : 0;
+    double totalDrSharePercentage = 0;
+    for (var s in consSvc) {
+      totalDrSharePercentage += (calculateServiceShare(s)['drSharePercentage'] as num).toDouble();
+    }
+    double avgDrShare = consSvc.isNotEmpty ? totalDrSharePercentage / consSvc.length : 0;
     double totalDrShare = 0;
 
     final serviceDetails = services.map((s) {
-      double drShare = 0;
+      final shareInfo = calculateServiceShare(s);
+      final drShareAmount = shareInfo['drShareAmount'] as double;
+      final drSharePercentage = shareInfo['drSharePercentage'] as double;
+      final shareType = shareInfo['shareType'] as String;
       final lineTotal = s.service.price * s.quantity;
-      if (s.service.category == 'consultation') drShare = lineTotal;
-      totalDrShare += drShare;
+
+      totalDrShare += drShareAmount;
+
       return {
-        'id': s.service.id, 'name': s.service.name,
-        'rate': s.service.price, 'quantity': s.quantity, 'total': lineTotal,
-        'type': s.service.category, 'drShare': drShare > 0 ? 100 : 0,
+        'id': s.service.id,
+        'name': s.service.name,
+        'rate': s.service.price,
+        'quantity': s.quantity,
+        'total': lineTotal,
+        'type': s.service.category,
+        'drShare': drSharePercentage,
+        'drShareAmount': drShareAmount,
+        'shareType': shareType,
         'doctorSrlNo': s.doctorSrlNo,
         'doctorName': s.doctorName,
         'department': s.doctorDepartment,
       };
     }).toList();
+
+    totalDrShare = serviceDetails.fold(0.0, (sum, d) => sum + (d['drShareAmount'] as double));
 
     final payload = {
       'patient_mr_number': patient.mrNo,
@@ -938,29 +1104,40 @@ class OpdProvider extends ChangeNotifier {
 
     // Post-save cleanup logic removed (MR incrementing handled by MrProvider + UI)
 
-    // Consultant payment records
     if (!_isReferredToDiscount) {
-      for (var svc in services) {
-      double drShareAmount = svc.service.category == 'consultation' ? svc.service.price : 0;
-      if (drShareAmount > 0) {
-        final dName = svc.doctorName ??
-            (services.firstWhere((s) => s.doctorName != null, orElse: () => services.first).doctorName ?? 'Unknown');
-        final dDept = svc.doctorDepartment ?? '';
+      for (var i = 0; i < services.length; i++) {
+        final svc = services[i];
+        final detail = serviceDetails[i];
+        final drShareAmount = (detail['drShareAmount'] as num?)?.toDouble() ?? 0.0;
+        final drShareValue = (detail['drShare'] as num?)?.toDouble() ?? 0.0;
 
-        await _paymentApiService.createConsultantPayment({
-          'payment_date': dateStr, 'payment_time': timeStr,
-          'doctor_name': dName, 'payment_department': dDept,
-          'total': svc.service.price, 'payment_share': 100,
-          'payment_amount': drShareAmount,
-          'patient_id': patient.mrNo, 'patient_date': dateStr,
-          'patient_service': svc.service.name, 'patient_name': patient.fullName,
-          'shift_id': currentShift?.shiftId ?? 0,
-          'shift_type': currentShift?.shiftType ?? 'N/A',
-          'shift_date': currentShift?.shiftDate ?? dateStr,
-        });
+        if (drShareAmount > 0) {
+          final dName = svc.doctorName ??
+              (services.firstWhere((s) => s.doctorName != null, orElse: () => services.first).doctorName ?? 'Unknown');
+          final dDept = svc.doctorDepartment ?? '';
+
+          await _paymentApiService.createConsultantPayment({
+            'payment_date': dateStr,
+            'payment_time': timeStr,
+            'doctor_name': dName,
+            'doctor_id': detail['doctorSrlNo'] ?? firstDoctorId,
+            'payment_department': dDept,
+            'total': detail['total'],
+            'payment_share': drShareValue,
+            'payment_amount': drShareAmount,
+            'share_type': detail['shareType'],
+            'receipt_id': _lastSavedReceiptId,
+            'patient_id': patient.mrNo,
+            'patient_date': dateStr,
+            'patient_service': svc.service.name,
+            'patient_name': patient.fullName,
+            'shift_id': currentShift?.shiftId ?? 0,
+            'shift_type': currentShift?.shiftType ?? 'N/A',
+            'shift_date': currentShift?.shiftDate ?? dateStr,
+          });
+        }
       }
     }
-  }
 
     if (_isDisposed) return true;
 

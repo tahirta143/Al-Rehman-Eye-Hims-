@@ -419,14 +419,32 @@ class _DoctorCard extends StatelessWidget {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    'Consultation Fee',
-                                    style: TextStyle(color: Colors.grey.shade500, fontSize: 11),
+                                    'Consultation',
+                                    style: TextStyle(color: Colors.grey.shade500, fontSize: 10),
                                   ),
                                   Text(
-                                    'PKR ${doctor.consultationFee}',
+                                    'Rs. ${doctor.consultationFee}',
                                     style: const TextStyle(
                                       color: Color(0xFF1A1A1A),
-                                      fontSize: 15,
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(width: 16),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Follow-up',
+                                    style: TextStyle(color: Colors.grey.shade500, fontSize: 10),
+                                  ),
+                                  Text(
+                                    'Rs. ${doctor.followUpCharges}',
+                                    style: const TextStyle(
+                                      color: Color(0xFF1A1A1A),
+                                      fontSize: 14,
                                       fontWeight: FontWeight.bold,
                                     ),
                                   ),

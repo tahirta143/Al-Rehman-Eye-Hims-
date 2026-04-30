@@ -116,7 +116,7 @@ class DoctorModel {
   }
 
   // Convert to DoctorInfo for UI compatibility
-  DoctorInfo toDoctorInfo({int totalAppointments = 0}) {
+  DoctorInfo toDoctorInfo({int totalAppointments = 0, String? customFee, String? customFollowUp}) {
     // Parse available days from comma-separated string
     final daysList = availableDays
         .split(',')
@@ -131,8 +131,8 @@ class DoctorModel {
       id: srlNo.toString(),
       name: 'Dr. $doctorName',
       specialty: doctorSpecialization,
-      consultationFee: _formatFee(consultationFee),
-      followUpCharges: _calculateFollowUp(consultationFee),
+      consultationFee: customFee ?? _formatFee(consultationFee),
+      followUpCharges: customFollowUp ?? _calculateFollowUp(consultationFee),
       availableDays: _convertDaysToShort(daysList),
       timings: consultationTimings,
       hospital: hospitalName,

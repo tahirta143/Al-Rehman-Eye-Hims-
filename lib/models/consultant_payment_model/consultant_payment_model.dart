@@ -74,7 +74,9 @@ class PayoutRecordModel {
   final double doctorShare;
   final double paymentShare;
   final String status;
+  final String shareType; // percentage or fixed
   final bool opdCancelled;
+  final bool shiftClosed;
 
   PayoutRecordModel({
     required this.srlNo,
@@ -88,7 +90,9 @@ class PayoutRecordModel {
     required this.doctorShare,
     required this.paymentShare,
     required this.status,
+    required this.shareType,
     required this.opdCancelled,
+    required this.shiftClosed,
   });
 
   factory PayoutRecordModel.fromJson(Map<String, dynamic> json) {
@@ -104,9 +108,9 @@ class PayoutRecordModel {
       doctorShare: double.tryParse(json['payment_amount']?.toString() ?? json['doctor_share']?.toString() ?? '0') ?? 0.0,
       paymentShare: double.tryParse(json['payment_share']?.toString() ?? '0') ?? 0.0,
       status: json['status'] ?? '',
+      shareType: json['share_type']?.toString() ?? (json['payment_share'] != null && double.parse(json['payment_share'].toString()) > 0 ? 'percentage' : 'fixed'),
       opdCancelled: (json['opd_cancelled'] == 1 || json['opd_cancelled'] == true),
+      shiftClosed: (json['shift_closed'] == 1 || json['shift_closed'] == true),
     );
   }
-
-  get shiftClosed => null;
 }

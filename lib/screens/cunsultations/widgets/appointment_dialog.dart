@@ -61,21 +61,9 @@ class _AppointmentDialogState extends State<AppointmentDialog> {
         }
       });
     }
-    _mrFocusNode.addListener(() {
-      if (!_mrFocusNode.hasFocus) {
-        _padMr();
-      }
-    });
+    // No MR padding as per React parity
   }
 
-  void _padMr() {
-    final raw = _mrCtrl.text.replaceAll(RegExp(r'[^0-9]'), '');
-    if (raw.isNotEmpty && raw.length < 5) {
-      final padded = raw.padLeft(5, '0');
-      _mrCtrl.text = padded;
-      _onMrChanged(padded);
-    }
-  }
 
   @override
   void dispose() {
@@ -109,7 +97,7 @@ class _AppointmentDialogState extends State<AppointmentDialog> {
     }
 
     final mrProv = Provider.of<MrProvider>(context, listen: false);
-    final patient = await mrProv.findByMrNumber(raw.padLeft(5, '0'));
+    final patient = await mrProv.findByMrNumber(raw);
 
     if (!mounted) return;
 
@@ -124,7 +112,7 @@ class _AppointmentDialogState extends State<AppointmentDialog> {
       _addressCtrl.text = patient.address;
       
       // Fetch visit history
-      context.read<ConsultationProvider>().fetchPatientHistory(raw.padLeft(5, '0'));
+      context.read<ConsultationProvider>().fetchPatientHistory(raw);
     } else {
       setState(() {
         _patientFound = false;

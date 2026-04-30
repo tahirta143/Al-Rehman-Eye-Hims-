@@ -27,11 +27,11 @@ class ConsultationApiService {
       print('--- Fetching Doctors ---');
       print('URL: $url');
       print('Public: $isPublic');
-      
+
       final response = await http
           .get(Uri.parse(url), headers: headers)
           .timeout(const Duration(seconds: 15));
-      
+
       print('Status: ${response.statusCode}');
 
       if (response.statusCode == 401) {
@@ -43,7 +43,7 @@ class ConsultationApiService {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
-        
+
         if (data['success'] == true) {
           final doctorsJson = data['data'] as List<dynamic>;
           final doctors = doctorsJson
@@ -79,7 +79,7 @@ class ConsultationApiService {
     try {
       final headers = await _authHeaders();
       final endpoint = isPublic ? '/public/patient/appointments/my' : '/appointments';
-      
+
       final response = await http
           .get(Uri.parse('${GlobalApi.baseUrl}$endpoint'), headers: headers)
           .timeout(const Duration(seconds: 15));
@@ -93,7 +93,7 @@ class ConsultationApiService {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
-        
+
         if (data['success'] == true) {
           final appointmentsJson = data['data'] as List<dynamic>;
           final appointments = appointmentsJson
@@ -131,10 +131,10 @@ class ConsultationApiService {
       final headers = await _authHeaders();
       final response = await http
           .post(
-            Uri.parse('${GlobalApi.baseUrl}/appointments'),
-            headers: headers,
-            body: jsonEncode(appointmentData),
-          )
+        Uri.parse('${GlobalApi.baseUrl}/appointments'),
+        headers: headers,
+        body: jsonEncode(appointmentData),
+      )
           .timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 401) {
@@ -151,7 +151,7 @@ class ConsultationApiService {
           // Extract appointment data if available
           final appointmentJson = data['data'] as Map<String, dynamic>?;
           AppointmentModel? appointment;
-          
+
           if (appointmentJson != null) {
             appointment = AppointmentModel.fromJson(appointmentJson);
           }
@@ -203,7 +203,7 @@ class ConsultationApiService {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
-        
+
         if (data['success'] == true) {
           final slotsData = data['data'] as Map<String, dynamic>;
           final availableSlots = List<String>.from(slotsData['available_slots'] ?? []);
@@ -241,10 +241,10 @@ class ConsultationApiService {
       final headers = await _authHeaders();
       final response = await http
           .put(
-            Uri.parse('${GlobalApi.baseUrl}/appointments/$id'),
-            headers: headers,
-            body: jsonEncode(appointmentData),
-          )
+        Uri.parse('${GlobalApi.baseUrl}/appointments/$id'),
+        headers: headers,
+        body: jsonEncode(appointmentData),
+      )
           .timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 401) {
@@ -289,9 +289,9 @@ class ConsultationApiService {
       final headers = await _authHeaders();
       final response = await http
           .delete(
-            Uri.parse('${GlobalApi.baseUrl}/appointments/$id'),
-            headers: headers,
-          )
+        Uri.parse('${GlobalApi.baseUrl}/appointments/$id'),
+        headers: headers,
+      )
           .timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 401) {
@@ -366,9 +366,55 @@ class ConsultationApiService {
       );
     }
   }
+  // ─── GET /api/doctors/service-mappings ───────────────────────────
+  Future<ServiceMappingsResult> fetchServiceDoctorMappings() async {
+    try {
+      final headers = await _authHeaders();
+      final url = '${GlobalApi.baseUrl}/doctors/service-mappings';
+
+      final response = await http
+          .get(Uri.parse(url), headers: headers)
+          .timeout(const Duration(seconds: 15));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        if (data['success'] == true) {
+          return ServiceMappingsResult(
+            success: true,
+            data: data['data'] as Map<String, dynamic>,
+          );
+        }
+        return ServiceMappingsResult(
+          success: false,
+          message: data['message'] as String? ?? 'Failed to fetch mappings',
+        );
+      }
+      return ServiceMappingsResult(
+        success: false,
+        message: 'Server error: ${response.statusCode}',
+      );
+    } catch (e) {
+      return ServiceMappingsResult(
+        success: false,
+        message: 'Failed to fetch mappings: $e',
+      );
+    }
+  }
 }
 
 // ─── Result Classes ────────────────────────────────────────────────
+
+class ServiceMappingsResult {
+  final bool success;
+  final Map<String, dynamic>? data;
+  final String? message;
+
+  ServiceMappingsResult({
+    required this.success,
+    this.data,
+    this.message,
+  });
+}
 
 class DoctorsResult {
   final bool success;

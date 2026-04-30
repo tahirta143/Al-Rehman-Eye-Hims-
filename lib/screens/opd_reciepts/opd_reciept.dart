@@ -1863,8 +1863,12 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen> {
                           color: _textDark),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis),
-                  Text('PKR ${svc.price.toStringAsFixed(0)}',
-                      style: const TextStyle(fontSize: 12, color: _textLight)),
+                  Text(
+                    svc.category == 'consultation' 
+                      ? 'Cons: ${svc.price.toStringAsFixed(0)} | F/Up: ${svc.followUpPrice?.toStringAsFixed(0) ?? '0'}'
+                      : 'PKR ${svc.price.toStringAsFixed(0)}',
+                    style: const TextStyle(fontSize: 12, color: _textLight)
+                  ),
                 ]),
           ),
           Icon(isSel ? Icons.check_circle_rounded : Icons.add_circle_outline_rounded,
@@ -2729,8 +2733,12 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen> {
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
                           color: _textDark)),
-                  Text('PKR ${svc.price.toStringAsFixed(0)}',
-                      style: const TextStyle(fontSize: 11, color: _textLight)),
+                  Text(
+                    svc.category == 'consultation' 
+                      ? 'Cons: ${svc.price.toStringAsFixed(0)} | F/Up: ${svc.followUpPrice?.toStringAsFixed(0) ?? '0'}'
+                      : 'PKR ${svc.price.toStringAsFixed(0)}',
+                    style: const TextStyle(fontSize: 11, color: _textLight)
+                  ),
                 ]),
           ),
           Icon(isSel ? Icons.check_circle_rounded : Icons.add_circle_outline_rounded,
@@ -2782,7 +2790,94 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen> {
         const SizedBox(height: 16),
 
         _billRow('Services Total', 'PKR ${prov.servicesTotal.toStringAsFixed(2)}'),
-        const SizedBox(height: 8),
+        const SizedBox(height: 12),
+        
+        // --- Itemized Breakdown (New) ---
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.grey[50],
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: _border),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Itemized Services', 
+                style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: _textLight, letterSpacing: 0.5)),
+              const SizedBox(height: 8),
+              ...prov.selectedServices.map((s) {
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(s.service.name, 
+                          style: const TextStyle(fontSize: 12, color: _textDark)),
+                      ),
+                      Text('${s.quantity} x ${s.service.price.toStringAsFixed(0)}',
+                        style: const TextStyle(fontSize: 12, color: _textLight)),
+                      const SizedBox(width: 8),
+                      Text('PKR ${(s.quantity * s.service.price).toStringAsFixed(0)}',
+                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: _textDark)),
+                    ],
+                  ),
+                );
+              }),
+              const Divider(height: 16),
+              // --- Professional Share Breakdown ---
+              const Text('Professional Share Breakdown', 
+                style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: _textLight, letterSpacing: 0.5)),
+              const SizedBox(height: 8),
+              ...prov.selectedServices.where((s) => prov.calculateServiceShare(s)['drShareAmount'] > 0).map((s) {
+                final shareInfo = prov.calculateServiceShare(s);
+                final drAmt = shareInfo['drShareAmount'] as double;
+                final drPercent = shareInfo['drSharePercentage'] as double;
+                final isFixed = shareInfo['shareType'] == 'fixed';
+                
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Row(
+                    children: [
+                      Icon(Icons.person_pin_rounded, size: 12, color: Colors.blue[400]),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(s.doctorName ?? 'Consultant', 
+                          style: const TextStyle(fontSize: 11, color: _textDark)),
+                      ),
+                      Text(isFixed ? '(Fixed)' : '(${drPercent.toStringAsFixed(0)}%)',
+                        style: TextStyle(fontSize: 10, color: Colors.blue[700], fontWeight: FontWeight.w500)),
+                      const SizedBox(width: 8),
+                      Text('PKR ${drAmt.toStringAsFixed(0)}',
+                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.blue[800])),
+                    ],
+                  ),
+                );
+              }),
+              if (prov.totalDrShareAmount > 0) ...[
+                const Divider(height: 16),
+                Row(
+                  children: [
+                    const Text('Total Professional Share', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+                    const Spacer(),
+                    Text('PKR ${prov.totalDrShareAmount.toStringAsFixed(0)}', 
+                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.blue[900])),
+                  ],
+                ),
+                Row(
+                  children: [
+                    const Text('Hospital Net Share', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+                    const Spacer(),
+                    Text('PKR ${prov.totalHospitalShareAmount.toStringAsFixed(0)}', 
+                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.green[800])),
+                  ],
+                ),
+              ],
+            ],
+          ),
+        ),
+        
+        const SizedBox(height: 16),
         Row(children: [
           const Text('Discount',
               style: TextStyle(fontSize: 13, color: _textLight)),
