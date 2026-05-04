@@ -16,6 +16,8 @@ class VitalsModel {
   final double? hip;
   final double? whr;
   final int painScale;
+  final String? heightUnit;
+  final String? bpReadingType;
   final DateTime? createdAt;
 
   VitalsModel({
@@ -36,6 +38,8 @@ class VitalsModel {
     this.hip,
     this.whr,
     this.painScale = 0,
+    this.heightUnit = 'in',
+    this.bpReadingType = 'regular',
     this.createdAt,
   });
 
@@ -70,6 +74,8 @@ class VitalsModel {
       hip: parseDouble(json['hip']),
       whr: parseDouble(json['whr']),
       painScale: parseInt(json['pain_scale']) ?? 0,
+      heightUnit: json['height_unit']?.toString() ?? 'in',
+      bpReadingType: json['bp_reading_type']?.toString() ?? 'regular',
       createdAt: json['created_at'] != null ? DateTime.parse(json['created_at']) : null,
     );
   }
@@ -92,6 +98,8 @@ class VitalsModel {
       'hip': hip,
       'whr': whr,
       'pain_scale': painScale,
+      'height_unit': heightUnit,
+      'bp_reading_type': bpReadingType,
     };
   }
 }

@@ -253,7 +253,7 @@ class _VitalsForm extends StatelessWidget {
             icon: Icons.monitor_weight_outlined,
             children: [
               _VitalCard(label: 'Weight', unit: 'Kgs', controller: provider.controllers['weight']!, icon: Icons.scale_rounded),
-              _VitalCard(label: 'Height', unit: 'Inches', controller: provider.controllers['height']!, icon: Icons.height_rounded),
+              _HeightVitalCard(provider: provider),
               _VitalComputedCard(label: 'BMI', unit: _getBmiStatus(provider.bmi).label, value: provider.bmi, icon: Icons.speed_rounded, statusColor: _getBmiStatus(provider.bmi).color),
               _VitalComputedCard(label: 'BMR', unit: 'kcal/day', value: provider.bmr, icon: Icons.bolt_rounded, statusColor: kTeal),
               _VitalCard(label: 'Waist', unit: 'cm', controller: provider.controllers['waist']!, icon: Icons.straighten_rounded),
@@ -265,6 +265,7 @@ class _VitalsForm extends StatelessWidget {
           _VitalGroup(
             title: 'VITAL SIGNS',
             icon: Icons.favorite_border_rounded,
+            headerAction: _BpReadingTypeToggle(provider: provider),
             children: [
               _VitalCard(label: 'Systolic', unit: 'mmHg', controller: provider.controllers['systolic']!, icon: Icons.favorite_rounded),
               _VitalCard(label: 'Diastolic', unit: 'mmHg', controller: provider.controllers['diastolic']!, icon: Icons.favorite_outline_rounded),
@@ -321,7 +322,8 @@ class _VitalGroup extends StatelessWidget {
   final String title;
   final IconData icon;
   final List<Widget> children;
-  const _VitalGroup({required this.title, required this.icon, required this.children});
+  final Widget? headerAction;
+  const _VitalGroup({required this.title, required this.icon, required this.children, this.headerAction});
 
   @override
   Widget build(BuildContext context) {
@@ -337,6 +339,10 @@ class _VitalGroup extends StatelessWidget {
               Icon(icon, size: 16, color: kTeal),
               const SizedBox(width: 8),
               Text(title, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: kTextMid, letterSpacing: 1)),
+              if (headerAction != null) ...[
+                const Spacer(),
+                headerAction!,
+              ],
             ],
           ),
           const SizedBox(height: 12),
@@ -440,6 +446,119 @@ class _VitalComputedCard extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _HeightVitalCard extends StatelessWidget {
+  final VitalsProvider provider;
+  const _HeightVitalCard({required this.provider});
+
+  @override
+  Widget build(BuildContext context) {
+    final unit = provider.heightUnit;
+    return Container(
+      height: 75,
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(color: kWhite, borderRadius: BorderRadius.circular(10), border: Border.all(color: kTealBorder), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.01), blurRadius: 2, offset: const Offset(0, 1))]),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.height_rounded, size: 10, color: kTeal),
+              const SizedBox(width: 4),
+              const Expanded(child: Text('HEIGHT', style: TextStyle(fontSize: 8.5, fontWeight: FontWeight.bold, color: kTextMid, letterSpacing: 0.5))),
+              Container(
+                height: 18,
+                decoration: BoxDecoration(color: kTealLight, borderRadius: BorderRadius.circular(4)),
+                child: Row(
+                  children: [
+                    _UnitBtn(label: 'in', isSel: unit == 'in', onTap: () => provider.setHeightUnit('in')),
+                    _UnitBtn(label: 'cm', isSel: unit == 'cm', onTap: () => provider.setHeightUnit('cm')),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const Spacer(),
+          TextField(
+            controller: provider.controllers['height'],
+            keyboardType: TextInputType.number,
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: kTextDark),
+            decoration: InputDecoration(
+              isDense: true,
+              hintText: '0',
+              hintStyle: TextStyle(color: kTextMuted.withOpacity(0.5)),
+              border: InputBorder.none,
+              contentPadding: EdgeInsets.zero,
+              suffixText: unit == 'in' ? 'inches' : 'cm',
+              suffixStyle: const TextStyle(fontSize: 8, color: kTextMid, fontWeight: FontWeight.normal),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _UnitBtn extends StatelessWidget {
+  final String label;
+  final bool isSel;
+  final VoidCallback onTap;
+  const _UnitBtn({required this.label, required this.isSel, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6),
+        decoration: BoxDecoration(color: isSel ? kTeal : Colors.transparent, borderRadius: BorderRadius.circular(4)),
+        alignment: Alignment.center,
+        child: Text(label, style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: isSel ? kWhite : kTeal)),
+      ),
+    );
+  }
+}
+
+class _BpReadingTypeToggle extends StatelessWidget {
+  final VitalsProvider provider;
+  const _BpReadingTypeToggle({required this.provider});
+
+  @override
+  Widget build(BuildContext context) {
+    final type = provider.bpReadingType;
+    return Container(
+      padding: const EdgeInsets.all(2),
+      decoration: BoxDecoration(color: kWhite, borderRadius: BorderRadius.circular(6), border: Border.all(color: kTealBorder)),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _TypeBtn(label: 'Regular', isSel: type == 'regular', onTap: () => provider.setBpReadingType('regular')),
+          _TypeBtn(label: 'Fasting', isSel: type == 'fasting', onTap: () => provider.setBpReadingType('fasting')),
+        ],
+      ),
+    );
+  }
+}
+
+class _TypeBtn extends StatelessWidget {
+  final String label;
+  final bool isSel;
+  final VoidCallback onTap;
+  const _TypeBtn({required this.label, required this.isSel, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        decoration: BoxDecoration(color: isSel ? kTeal : Colors.transparent, borderRadius: BorderRadius.circular(4)),
+        child: Text(label, style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: isSel ? kWhite : kTextMid)),
       ),
     );
   }

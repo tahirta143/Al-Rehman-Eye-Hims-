@@ -48,6 +48,8 @@ class VitalsProvider extends ChangeNotifier {
   String _bmr = '—';
   String _whr = '—';
   int _painScale = 0;
+  String _heightUnit = 'in';
+  String _bpReadingType = 'regular';
 
   // Getters
   bool get isLoading => _isLoading;
@@ -64,6 +66,8 @@ class VitalsProvider extends ChangeNotifier {
   String get bmr => _bmr;
   String get whr => _whr;
   int get painScale => _painScale;
+  String get heightUnit => _heightUnit;
+  String get bpReadingType => _bpReadingType;
 
   VitalsProvider() {
     // Add listeners for real-time calculations
@@ -192,6 +196,8 @@ class VitalsProvider extends ChangeNotifier {
     controllers['waist']!.text = (data['waist'] ?? '').toString();
     controllers['hip']!.text = (data['hip'] ?? '').toString();
     _painScale = (data['pain_scale'] as num?)?.toInt() ?? 0;
+    _heightUnit = data['height_unit']?.toString() ?? 'in';
+    _bpReadingType = data['bp_reading_type']?.toString() ?? 'regular';
     notifyListeners();
   }
 
@@ -200,15 +206,26 @@ class VitalsProvider extends ChangeNotifier {
       ctrl.clear();
     }
     _painScale = 0;
+    _heightUnit = 'in';
+    _bpReadingType = 'regular';
     notifyListeners();
   }
 
   // ─── Calculations ───────────────────────────────────────────────────
   void _calculateBmiAndBmr() {
     final w = double.tryParse(controllers['weight']!.text) ?? 0;
-    final hInches = double.tryParse(controllers['height']!.text) ?? 0;
-    final hMeters = hInches * 0.0254;
-    final hCm = hInches * 2.54;
+    final hRaw = double.tryParse(controllers['height']!.text) ?? 0;
+    
+    double hMeters = 0;
+    double hCm = 0;
+
+    if (_heightUnit == 'cm') {
+      hCm = hRaw;
+      hMeters = hRaw / 100;
+    } else {
+      hCm = hRaw * 2.54;
+      hMeters = hRaw * 0.0254;
+    }
 
     // BMI
     if (w > 0 && hMeters > 0) {
@@ -245,6 +262,28 @@ class VitalsProvider extends ChangeNotifier {
 
   void setPainScale(int val) {
     _painScale = val;
+    notifyListeners();
+  }
+
+  void setHeightUnit(String unit) {
+    final next = unit == 'cm' ? 'cm' : 'in';
+    if (_heightUnit == next) return;
+
+    final v = double.tryParse(controllers['height']!.text) ?? 0;
+    if (v > 0) {
+      if (_heightUnit == 'in' && next == 'cm') {
+        controllers['height']!.text = (v * 2.54).toStringAsFixed(1);
+      } else if (_heightUnit == 'cm' && next == 'in') {
+        controllers['height']!.text = (v / 2.54).toStringAsFixed(1);
+      }
+    }
+    _heightUnit = next;
+    notifyListeners();
+    _calculateBmiAndBmr();
+  }
+
+  void setBpReadingType(String type) {
+    _bpReadingType = type;
     notifyListeners();
   }
 
@@ -327,6 +366,8 @@ class VitalsProvider extends ChangeNotifier {
         hip: double.tryParse(controllers['hip']!.text),
         whr: double.tryParse(_whr),
         painScale: _painScale,
+        heightUnit: _heightUnit,
+        bpReadingType: ((int.tryParse(controllers['systolic']!.text) ?? 0) > 0 && (int.tryParse(controllers['diastolic']!.text) ?? 0) > 0) ? _bpReadingType : null,
       );
 
       if (_connectivity.isOnline.value) {
@@ -357,6 +398,8 @@ class VitalsProvider extends ChangeNotifier {
           'hip': model.hip,
           'whr': model.whr,
           'pain_scale': model.painScale,
+          'height_unit': model.heightUnit,
+          'bp_reading_type': model.bpReadingType,
           'sync_status': 'pending',
           'created_at': DateTime.now().toIso8601String(),
         });

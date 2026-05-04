@@ -1,4 +1,4 @@
-import 'dart:async';
+ import 'dart:async';
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
 
@@ -20,7 +20,7 @@ class DatabaseHelper {
     String path = join(await getDatabasesPath(), 'hims_offline.db');
     return await openDatabase(
       path,
-      version: 7,
+      version: 8,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -128,6 +128,13 @@ class DatabaseHelper {
     if (oldVersion < 7) {
       try {
         await db.execute('ALTER TABLE visits_local ADD COLUMN mr_number TEXT');
+      } catch (e) {}
+    }
+
+    if (oldVersion < 8) {
+      try {
+        await db.execute('ALTER TABLE vitals_local ADD COLUMN height_unit TEXT');
+        await db.execute('ALTER TABLE vitals_local ADD COLUMN bp_reading_type TEXT');
       } catch (e) {}
     }
   }
@@ -246,6 +253,8 @@ class DatabaseHelper {
         weight REAL,
         temp REAL,
         mr_number TEXT,
+        height_unit TEXT,
+        bp_reading_type TEXT,
         sync_status TEXT,
         last_sync_attempt_at TEXT,
         last_error TEXT,
