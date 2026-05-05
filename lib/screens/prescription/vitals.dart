@@ -1,7 +1,11 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:hims_app/custum%20widgets/drawer/base_scaffold.dart';
-import 'package:hims_app/providers/vitals_provider/vitals_provider.dart';
 import 'package:provider/provider.dart';
+import '../../providers/prescription_provider/prescription_provider.dart';
+import '../../providers/vitals_provider/vitals_provider.dart';
+import 'widgets/consultation_sidebar.dart';
+
 
 // ─── Hims Teal Design System ──────────────────────────────────────────────
 const kTeal = Color(0xFF00B5AD);
@@ -32,12 +36,15 @@ class _VitalsScreenState extends State<VitalsScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<VitalsProvider>().fetchConsultationPatients();
+      final p = context.read<PrescriptionProvider>();
+      p.loadConsultationPatients();
+      p.startAutoRefresh();
     });
   }
 
   @override
   void dispose() {
+    context.read<PrescriptionProvider>().stopAutoRefresh();
     _mrSearchCtrl.dispose();
     super.dispose();
   }
@@ -61,7 +68,17 @@ class _VitalsScreenState extends State<VitalsScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                 child: Column(
                   children: [
-                    if (!isTablet) _MobileConsultationBar(provider: provider),
+                    if (!isTablet) 
+                      SharedConsultationDropdown(
+                        department: 'General',
+                        onSelect: (cp) => provider.searchPatient(
+                          cp['patient_mr_number'].toString(), 
+                          customReceiptId: cp['receipt_id'], 
+                          customDoctor: cp['doctor_name'], 
+                          tokenNumber: cp['token_number']?.toString()
+                        ),
+                      ),
+                    if (!isTablet) const SizedBox(height: 16),
                     _HeaderCard(mrCtrl: _mrSearchCtrl, provider: provider),
                     const SizedBox(height: 16),
                     if (provider.currentPatient != null) ...[
@@ -80,13 +97,26 @@ class _VitalsScreenState extends State<VitalsScreen> {
             ),
 
             // ── Desktop Consultation Sidebar ─────────────────────────────────
-            if (isTablet) _ConsultationSidebar(provider: provider),
+            if (isTablet) 
+              SizedBox(
+                width: 320,
+                child: SharedConsultationSidebar(
+                  department: 'General',
+                  onSelect: (cp) => provider.searchPatient(
+                    cp['patient_mr_number'].toString(), 
+                    customReceiptId: cp['receipt_id'], 
+                    customDoctor: cp['doctor_name'], 
+                    tokenNumber: cp['token_number']?.toString()
+                  ),
+                ),
+              ),
           ],
         ),
       ),
     );
   }
 }
+
 
 // ─── Header Card (Patient Info) ────────────────────────────────────────────
 class _HeaderCard extends StatelessWidget {
@@ -667,143 +697,6 @@ class _SaveSection extends StatelessWidget {
         icon: provider.isSaving ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: kWhite, strokeWidth: 2)) : const Icon(Icons.check_circle_outline_rounded),
         label: Text(provider.isSaving ? 'Saving...' : 'SAVE PATIENT VITALS', style: const TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1)),
         style: ElevatedButton.styleFrom(backgroundColor: kTeal, foregroundColor: kWhite, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)), elevation: 2),
-      ),
-    );
-  }
-}
-
-// ─── Sidebar / Toolbar (Consultation Queue) ───────────────────────────────
-class _ConsultationSidebar extends StatelessWidget {
-  final VitalsProvider provider;
-  const _ConsultationSidebar({required this.provider});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 320,
-      decoration: const BoxDecoration(color: kWhite, border: Border(left: BorderSide(color: kTealBorder))),
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(colors: [Color(0xFF2563EB), Color(0xFF1D4ED8)]),
-            ),
-            child: Row(
-              children: [
-                const Icon(Icons.assignment_ind, color: kWhite, size: 18),
-                const SizedBox(width: 8),
-                const Text('CONSULTATIONS', style: TextStyle(color: kWhite, fontWeight: FontWeight.bold, fontSize: 13, letterSpacing: 0.5)),
-                const Spacer(),
-                IconButton(onPressed: () => provider.fetchConsultationPatients(), icon: const Icon(Icons.refresh_rounded, color: kWhite, size: 18), visualDensity: VisualDensity.compact),
-              ],
-            ),
-          ),
-          Expanded(
-            child: provider.isLoadingConsultations && provider.consultationPatients.isEmpty
-                ? const Center(child: CircularProgressIndicator(strokeWidth: 2, color: kTeal))
-                : ListView.separated(
-                    itemCount: provider.consultationPatients.length,
-                    separatorBuilder: (_, __) => const Divider(height: 1, color: kTealBorder),
-                    itemBuilder: (ctx, i) {
-                      final cp = provider.consultationPatients[i];
-                      final isSel = provider.currentPatient?.mrNumber == cp['patient_mr_number'];
-                      return ListTile(
-                        onTap: () => provider.searchPatient(cp['patient_mr_number'].toString(), customReceiptId: cp['receipt_id'], customDoctor: cp['doctor_name'], tokenNumber: cp['token_number']?.toString()),
-                        tileColor: isSel ? kTeal.withOpacity(0.05) : null,
-                        leading: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                          decoration: BoxDecoration(color: isSel ? kTeal : kTealLight, borderRadius: BorderRadius.circular(6)),
-                          child: Text(cp['patient_mr_number'].toString(), style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: isSel ? kWhite : kTeal)),
-                        ),
-                        title: Row(
-                          children: [
-                            Expanded(child: Text(cp['patient_name'] ?? 'Unknown', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: kTextDark))),
-                            if (cp['token_number'] != null) ...[
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: kTealLight,
-                                  borderRadius: BorderRadius.circular(4),
-                                  border: Border.all(color: kTeal.withOpacity(0.3)),
-                                ),
-                                child: Text(
-                                  'T-${cp['token_number']}',
-                                  style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: kTeal),
-                                ),
-                              ),
-                            ],
-                          ],
-                        ),
-                        subtitle: Text('Dr. ${cp['doctor_name']}\n${cp['service_detail']}', style: const TextStyle(fontSize: 10, color: kTextMid)),
-                        trailing: isSel ? const Icon(Icons.arrow_forward_ios_rounded, size: 12, color: kTeal) : null,
-                      );
-                    },
-                  ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _MobileConsultationBar extends StatelessWidget {
-  final VitalsProvider provider;
-  const _MobileConsultationBar({required this.provider});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-      decoration: BoxDecoration(color: kWhite, borderRadius: BorderRadius.circular(10), border: Border.all(color: kTealBorder)),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<Map<String, dynamic>>(
-          isExpanded: true,
-          hint: Row(
-            children: [
-              const Icon(Icons.people_outline, size: 18, color: kTeal),
-              const SizedBox(width: 8),
-              const Text('Consultation Patients', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: kTextDark)),
-            ],
-          ),
-          icon: const Icon(Icons.keyboard_arrow_down_rounded, color: kTeal),
-          items: provider.consultationPatients.map((cp) {
-            return DropdownMenuItem<Map<String, dynamic>>(
-              value: Map<String, dynamic>.from(cp), 
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Row(
-                    children: [
-                      Text(cp['patient_name'] ?? 'Unknown', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                      if (cp['token_number'] != null) ...[
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: kTealLight,
-                            borderRadius: BorderRadius.circular(4),
-                            border: Border.all(color: kTeal.withOpacity(0.3)),
-                          ),
-                          child: Text(
-                            'T-${cp['token_number']}',
-                            style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: kTeal),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                  Text('${cp['patient_mr_number']} | ${cp['service_detail']}', style: const TextStyle(fontSize: 10, color: kTextMid)),
-                ],
-              )
-            );
-          }).toList(),
-          onChanged: (v) {
-            if (v != null) provider.searchPatient(v['patient_mr_number'].toString(), customReceiptId: v['receipt_id'], customDoctor: v['doctor_name'], tokenNumber: v['token_number']?.toString());
-          },
-        ),
       ),
     );
   }

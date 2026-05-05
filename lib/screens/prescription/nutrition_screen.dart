@@ -9,6 +9,8 @@ import '../../models/mr_model/mr_patient_model.dart';
 import '../../models/vitals_model/vitals_model.dart';
 import '../../core/services/pdf_nutrition_service.dart';
 import '../../custum widgets/custom_loader.dart';
+import 'widgets/consultation_sidebar.dart';
+
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const kTeal = Color(0xFF00B5AD);
@@ -32,9 +34,9 @@ class _NutritionScreenState extends State<NutritionScreen> {
     super.initState();
     // Start periodic fetching of consultation patients
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final nutritionProvider = context.read<NutritionProvider>();
-      final prescriptionProvider = context.read<PrescriptionProvider>();
-      nutritionProvider.startConsultationTimer(prescriptionProvider);
+      final p = context.read<PrescriptionProvider>();
+      p.loadConsultationPatients();
+      p.startAutoRefresh();
     });
   }
 
@@ -66,22 +68,40 @@ class _NutritionScreenState extends State<NutritionScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (isMobile) _ConsultationDropdown(provider: prescriptionProvider),
+            if (isMobile) const SharedConsultationDropdown(),
             if (isMobile) const SizedBox(height: 16),
             
-            // ── Patient Info ──────────────────────────────────────────────────
-            FadeInUp(
-              duration: const Duration(milliseconds: 400),
-              child: _PatientInfoCard(
-                isTablet: !isMobile,
-                screenW: mq.size.width,
-                provider: prescriptionProvider,
-                nutritionProvider: nutritionProvider,
-              ),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  flex: 9,
+                  child: Column(
+                    children: [
+                      // ── Patient Info ──────────────────────────────────────────────────
+                      FadeInUp(
+                        duration: const Duration(milliseconds: 400),
+                        child: _PatientInfoCard(
+                          isTablet: !isMobile,
+                          screenW: mq.size.width,
+                          provider: prescriptionProvider,
+                          nutritionProvider: nutritionProvider,
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                    ],
+                  ),
+                ),
+                if (!isMobile)
+                  const Expanded(
+                    flex: 3,
+                    child: SharedConsultationSidebar(),
+                  ),
+              ],
             ),
-            const SizedBox(height: 20),
 
             // ── Nutritional Assessment & Plan ──────────────────────────────────
+
             FadeInUp(
               delay: const Duration(milliseconds: 100),
               child: _buildSectionCard(
@@ -418,50 +438,7 @@ class _SavePrintButton extends StatelessWidget {
   }
 }
 
-class _ConsultationDropdown extends StatelessWidget {
-  final PrescriptionProvider provider;
-  const _ConsultationDropdown({required this.provider});
 
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF1F5F9), 
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: kBorder),
-      ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<dynamic>(
-          isExpanded: true,
-          hint: Row(
-            children: [
-              const Icon(Icons.people_outline, size: 18, color: kTeal),
-              const SizedBox(width: 8),
-              Text(provider.isLoadingPatients ? 'Loading patients...' : 'Select Consultation Patient', 
-                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: kTextDark)),
-            ],
-          ),
-          value: null,
-          onChanged: (val) => provider.selectConsultationPatient(val),
-          items: provider.consultationPatients.map((p) {
-            return DropdownMenuItem(
-              value: p,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(p['patient_name'] ?? '', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                  Text('MR: ${p['patient_mr_number']} | ${p['receipt_id']}', style: const TextStyle(fontSize: 10, color: kTextMid)),
-                ],
-              ),
-            );
-          }).toList(),
-        ),
-      ),
-    );
-  }
-}
 
 class _PatientInfoCard extends StatelessWidget {
   final bool isTablet;

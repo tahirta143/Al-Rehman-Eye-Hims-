@@ -10,6 +10,8 @@ import 'widgets/lab_values_sheet.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:animate_do/animate_do.dart';
 import '../../custum widgets/custom_loader.dart';
+import 'widgets/consultation_sidebar.dart';
+
 
 class LabValuesScreen extends StatefulWidget {
   const LabValuesScreen({super.key});
@@ -33,15 +35,19 @@ class _LabValuesScreenState extends State<LabValuesScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<PrescriptionProvider>().loadConsultationPatients();
+      final p = context.read<PrescriptionProvider>();
+      p.loadConsultationPatients();
+      p.startAutoRefresh();
     });
   }
 
   @override
   void dispose() {
+    context.read<PrescriptionProvider>().stopAutoRefresh();
     _mrSearchCtrl.dispose();
     super.dispose();
   }
+
 
   @override
   Widget build(BuildContext context) {
@@ -66,12 +72,15 @@ class _LabValuesScreenState extends State<LabValuesScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  if (isMobile) const SharedConsultationDropdown(department: 'General'),
+                  if (isMobile) const SizedBox(height: 16),
                   // Header Card with MR Search
                   FadeInUp(
                     duration: const Duration(milliseconds: 300),
                     child: _buildPatientSearchCard(prescriptionProvider),
                   ),
                   const SizedBox(height: 16),
+
 
                   // Investigation Sheet
                   FadeInUp(
@@ -101,8 +110,9 @@ class _LabValuesScreenState extends State<LabValuesScreen> {
           if (!isMobile)
              const Expanded(
                flex: 3,
-               child: _ConsultationSidebar(),
+               child: SharedConsultationSidebar(department: 'General'),
              ),
+
         ],
       ),
     );
@@ -243,73 +253,4 @@ class _LabValuesScreenState extends State<LabValuesScreen> {
   }
 }
 
-// Reuse sidebar from prescription.dart style
-class _ConsultationSidebar extends StatelessWidget {
-  const _ConsultationSidebar();
 
-  @override
-  Widget build(BuildContext context) {
-    final provider = context.watch<PrescriptionProvider>();
-    return Container(
-      margin: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: kBorder),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 4)],
-      ),
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(colors: [Color(0xFF00B5AD), Color(0xFF00968F)]),
-              borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
-            ),
-            child: Row(
-              children: [
-                const Icon(Icons.assignment_ind, color: Colors.white, size: 16),
-                const SizedBox(width: 8),
-                const Text('Consultation Patients', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
-                const Spacer(),
-                IconButton(
-                  icon: const Icon(Icons.refresh, color: Colors.white, size: 16),
-                  onPressed: () => provider.loadConsultationPatients(),
-                  constraints: const BoxConstraints(),
-                  padding: EdgeInsets.zero,
-                ),
-              ],
-            ),
-          ),
-          Expanded(
-            child: provider.isLoadingPatients
-                ? const CustomLoader(size: 30)
-                : provider.consultationPatients
-                        .where((p) => !(p['doctor_department']?.toString().toLowerCase().contains('eye') ?? false))
-                        .isEmpty
-                    ? const Center(child: Text('No consultations today', style: TextStyle(fontSize: 11, color: Colors.grey)))
-                    : ListView.separated(
-                        itemCount: provider.consultationPatients
-                            .where((p) => !(p['doctor_department']?.toString().toLowerCase().contains('eye') ?? false))
-                            .length,
-                        separatorBuilder: (_, __) => const Divider(height: 1),
-                        itemBuilder: (context, idx) {
-                          final filtered = provider.consultationPatients
-                              .where((p) => !(p['doctor_department']?.toString().toLowerCase().contains('eye') ?? false))
-                              .toList();
-                          final p = filtered[idx];
-                          return ListTile(
-                            dense: true,
-                            onTap: () => provider.selectConsultationPatient(p),
-                            title: Text(p['patient_name'] ?? '', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                            subtitle: Text(p['service_detail'] ?? '', style: const TextStyle(fontSize: 10, color: Colors.grey)),
-                            trailing: Text(p['patient_mr_number']?.toString() ?? '', style: const TextStyle(fontSize: 10, color: kTeal, fontWeight: FontWeight.bold)),
-                          );
-                        },
-                      ),
-          ),
-        ],
-      ),
-    );
-  }
-}

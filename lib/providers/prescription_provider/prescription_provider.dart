@@ -11,6 +11,8 @@ import '../../core/utils/database_helper.dart';
 import '../../models/mr_model/mr_patient_model.dart';
 import '../../models/prescription_model/prescription_model.dart';
 import '../../models/vitals_model/vitals_model.dart';
+import 'dart:async';
+
 
 class PrescriptionProvider extends ChangeNotifier {
   final PrescriptionApiService _apiService = PrescriptionApiService();
@@ -19,6 +21,9 @@ class PrescriptionProvider extends ChangeNotifier {
   final ConnectivityService _connectivity = ConnectivityService();
   final CampSyncService _syncService = CampSyncService();
   final DatabaseHelper _db = DatabaseHelper();
+  
+  Timer? _refreshTimer;
+
 
   // ─── Loading States ───────────────────────────────────────────────
   bool _isLoading = false;
@@ -75,6 +80,17 @@ class PrescriptionProvider extends ChangeNotifier {
 
   List<dynamic> _consultationPatients = [];
   List<dynamic> get consultationPatients => _consultationPatients;
+
+  List<dynamic> getFilteredConsultationPatients(String? department) {
+    if (department == null) return _consultationPatients;
+    final targetDept = department.toLowerCase();
+    return _consultationPatients.where((p) {
+      final pDept = p['doctor_department']?.toString().toLowerCase() ?? '';
+      if (targetDept == 'eye') return pDept.contains('eye');
+      return !pDept.contains('eye');
+    }).toList();
+  }
+
 
   List<PrescriptionModel> _prescriptionHistory = [];
   List<PrescriptionModel> get prescriptionHistory => _prescriptionHistory;
@@ -184,7 +200,29 @@ class PrescriptionProvider extends ChangeNotifier {
   String get eyeTreatmentType => _eyeTreatmentType;
   DateTime? get eyeOperationDate => _eyeOperationDate;
 
+  // ─── Lifecycle ─────────────────────────────────────────────────────
+  void startAutoRefresh() {
+    _refreshTimer?.cancel();
+    _refreshTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
+      if (!_isLoadingPatients) {
+        loadConsultationPatients();
+      }
+    });
+  }
+
+  void stopAutoRefresh() {
+    _refreshTimer?.cancel();
+    _refreshTimer = null;
+  }
+
+  @override
+  void dispose() {
+    stopAutoRefresh();
+    super.dispose();
+  }
+
   // ─── Actions ─────────────────────────────────────────────────────
+
 
   Future<void> loadConsultationPatients() async {
     _isLoadingPatients = true;
@@ -211,7 +249,14 @@ class PrescriptionProvider extends ChangeNotifier {
         try {
           final res = await _apiService.fetchConsultationPatients().timeout(const Duration(seconds: 10));
           if (res['success'] == true) {
-            merged.addAll(res['data'] as List? ?? []);
+            final onlineList = res['data'];
+            if (onlineList is List) {
+              for (final item in onlineList) {
+                if (item is Map) {
+                  merged.add(Map<String, dynamic>.from(item));
+                }
+              }
+            }
           }
         } catch (e) {
           debugPrint('⚠️ Online consultation patients load failed: $e');
