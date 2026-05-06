@@ -5,7 +5,7 @@ import 'package:hims_app/core/services/auth_storage_service.dart';
 import 'package:hims_app/screens/auth/sign_up.dart';
 import 'package:hims_app/screens/auth/mobile_login_screen.dart';
 import 'package:provider/provider.dart';
-import '../dashboard/dashboard.dart';
+import '../home_screen/home_screen.dart';
 import '../../custum widgets/custom_loader.dart';
 
 

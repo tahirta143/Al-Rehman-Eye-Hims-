@@ -276,6 +276,12 @@ class _CustomDrawerState extends State<CustomDrawer> {
               child: ListView(
                 padding: const EdgeInsets.symmetric(vertical: 8),
                 children: [
+                  // Home — always visible
+                  _buildDrawerItem(
+                    icon: Icons.home_rounded,
+                    title: 'Home',
+                    index: 21,
+                  ),
                   // Dashboard — always visible
                   _buildDrawerItem(
                     icon: Icons.dashboard_rounded,

@@ -13,6 +13,7 @@ import 'package:hims_app/screens/consultation_payments/consultation_payments.dar
 import 'package:hims_app/screens/shift_management/shift_management.dart';
 import '../../screens/add_expenses/add_expenses.dart';
 import '../../screens/dashboard/dashboard.dart';
+import '../../screens/home_screen/home_screen.dart';
 import '../../custum widgets/bottombar/bottombar.dart';
 import '../../core/providers/permission_provider.dart';
 import '../../core/utils/date_formatter.dart';
@@ -245,8 +246,11 @@ class _BaseScaffoldState extends State<BaseScaffold> {
     Widget screen;
 
     switch (index) {
-      case 0:
+      case 21:
         screen = const HomeScreen();
+        break;
+      case 0:
+        screen = const DashboardScreen();
         break;
       case 1:
         screen = const ConsultationScreen();

@@ -677,7 +677,7 @@ class _DashboardBodyState extends State<_DashboardBody> {
                     ],
                   ),
                   // const SizedBox(height: 20),
-                  const SizedBox(height: 16),
+                  // const SizedBox(height: 16),
                   // ── 2×2 compact summary cards ──────────────────────────────────
               // ── 2×2 compact summary cards ──────────────────────────────────
               GridView.count(
@@ -748,7 +748,7 @@ class _DashboardBodyState extends State<_DashboardBody> {
                   ),
                 ],
               ),
-              const SizedBox(height: 4),
+              // const SizedBox(height: 4),
 
               // ── Revenue by Shift chart ──────────────────────────────────────
               FadeInUp(
@@ -796,14 +796,14 @@ class _DashboardBodyState extends State<_DashboardBody> {
                   ),
                 ),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 20),
               FadeInUp(
                 duration: const Duration(milliseconds: 500),
                 delay: const Duration(milliseconds: 600),
                 child: _buildCalendarPanel(dashboardProv),
               ),
-              const SizedBox(height: 24),
-              const SizedBox(height: 24),
+              const SizedBox(height: 20),
+
 
               // ── Revenue Trend ───────────────────────────────────────────────
               FadeInUp(
@@ -865,7 +865,7 @@ class _DashboardBodyState extends State<_DashboardBody> {
                   ),
                 ),
               ),
-              const SizedBox(height: 32),
+              const SizedBox(height: 20),
 
               // ── Available Doctors ───────────────────────────────────────────
               Row(
@@ -978,7 +978,7 @@ class _DashboardBodyState extends State<_DashboardBody> {
   }
 
   // ── Calendar panel ──────────────────────────────────────────────────────────
-  Widget _buildCalendarPanel(DashboardProvider prov) {
+  Widget  _buildCalendarPanel(DashboardProvider prov) {
     return _buildGlassPanel(
       title: 'Monthly Appointments',
       subtitle: 'Click a date to view details',
@@ -1353,11 +1353,11 @@ class _DashboardBodyState extends State<_DashboardBody> {
 }
 
 // ─────────────────────────────────────────────
-//  HOME SCREEN
+//  DASHBOARD SCREEN
 // ─────────────────────────────────────────────
-class HomeScreen extends StatelessWidget {
+class DashboardScreen extends StatelessWidget {
   final bool useScaffold;
-  const HomeScreen({super.key, this.useScaffold = true});
+  const DashboardScreen({super.key, this.useScaffold = true});
 
   @override
   Widget build(BuildContext context) {

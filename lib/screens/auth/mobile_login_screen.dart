@@ -260,7 +260,7 @@ class _MobileLoginScreenState extends State<MobileLoginScreen> {
       MaterialPageRoute(builder: (_) {
         if (user?.role == 'patient') return const PatientDashboard();
         if (user?.role == 'doctor') return const MobileDoctorDashboard();
-        return const HomeScreen();
+        return const DashboardScreen();
       }),
       (_) => false,
     );
