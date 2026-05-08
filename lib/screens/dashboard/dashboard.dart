@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
+import 'package:fl_chart/fl_chart.dart';
 
 import 'package:hims_app/custum widgets/drawer/base_scaffold.dart';
 import 'package:syncfusion_flutter_charts/charts.dart';
@@ -522,6 +523,200 @@ class _DoctorCard extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────
+//  LEGEND DOT  (reusable)
+// ─────────────────────────────────────────────
+class _LegendDot extends StatelessWidget {
+  final Color color;
+  final String label;
+
+  const _LegendDot({required this.color, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+        const SizedBox(width: 4),
+        Text(label,
+            style: TextStyle(fontSize: 10, color: Colors.grey.shade500)),
+      ],
+    );
+  }
+}
+
+// ─────────────────────────────────────────────
+//  GROUPED BAR CHART  (fl_chart)
+//  3 bars per shift: OPD Revenue | Consult Revenue | Patients
+//  X-axis labels: Morning · Evening · Night
+// ─────────────────────────────────────────────
+class _ShiftGroupedBarChart extends StatelessWidget {
+  final DashboardProvider prov;
+
+  const _ShiftGroupedBarChart({required this.prov});
+
+  static const _shifts = ['Morning', 'Evening', 'Night'];
+
+  List<List<double>> _buildData() {
+    double maxRev = 1;
+    for (final s in _shifts) {
+      final opd = (prov.shiftOpdRevenue[s] ?? 0).toDouble();
+      final consult = (prov.shiftConsultRevenue[s] ?? 0).toDouble();
+      if (opd > maxRev) maxRev = opd;
+      if (consult > maxRev) maxRev = consult;
+    }
+
+    return List.generate(_shifts.length, (i) {
+      final s = _shifts[i];
+      final opd = (prov.shiftOpdRevenue[s] ?? 0).toDouble();
+      final consult = (prov.shiftConsultRevenue[s] ?? 0).toDouble();
+      final pts = (prov.shiftPatientCount[s] ?? 0).toDouble();
+      return [
+        (opd / maxRev) * 55,
+        (consult / maxRev) * 55,
+        pts.clamp(0, 55).toDouble(),
+      ];
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final data = _buildData();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Legend
+        Row(
+          children: const [
+            _LegendDot(color: Color(0xFF10B981), label: 'OPD Rev'),
+            SizedBox(width: 12),
+            _LegendDot(color: Colors.indigo, label: 'Consult Rev'),
+            SizedBox(width: 12),
+            _LegendDot(color: Color(0xFFF59E0B), label: 'Patients'),
+          ],
+        ),
+        const SizedBox(height: 8),
+
+        // Bar Chart
+        SizedBox(
+          height: 200,
+          child: BarChart(
+            BarChartData(
+              maxY: 60,
+              minY: 0,
+              alignment: BarChartAlignment.spaceAround,
+              gridData: FlGridData(
+                show: true,
+                drawVerticalLine: false,
+                horizontalInterval: 10,
+                getDrawingHorizontalLine: (_) => FlLine(
+                  color: Colors.grey.shade100,
+                  strokeWidth: 1,
+                ),
+              ),
+              borderData: FlBorderData(
+                show: true,
+                border: Border.all(color: Colors.grey.shade100),
+              ),
+              titlesData: FlTitlesData(
+                leftTitles: AxisTitles(
+                  sideTitles: SideTitles(
+                    showTitles: true,
+                    reservedSize: 28,
+                    interval: 10,
+                    getTitlesWidget: (value, meta) => Text(
+                      value.toInt().toString(),
+                      style: const TextStyle(
+                          fontSize: 9, color: Color(0xFF94A3B8)),
+                    ),
+                  ),
+                ),
+                rightTitles:
+                    AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                topTitles:
+                    AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                bottomTitles: AxisTitles(
+                  sideTitles: SideTitles(
+                    showTitles: true,
+                    reservedSize: 28,
+                    getTitlesWidget: (value, meta) {
+                      final i = value.toInt();
+                      if (i < 0 || i >= _shifts.length) return const SizedBox();
+                      return Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Text(
+                          _shifts[i],
+                          style: const TextStyle(
+                              fontSize: 9, color: Color(0xFF94A3B8)),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+              barTouchData: BarTouchData(
+                touchTooltipData: BarTouchTooltipData(
+                  getTooltipColor: (_) => Colors.black87,
+                  getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                    final shift = _shifts[groupIndex];
+                    final labels = ['OPD', 'Consult', 'Patients'];
+                    final rawValues = [
+                      prov.shiftOpdRevenue[shift] ?? 0,
+                      prov.shiftConsultRevenue[shift] ?? 0,
+                      prov.shiftPatientCount[shift] ?? 0,
+                    ];
+                    final display = rodIndex < 2
+                        ? 'PKR ${NumberFormat('#,###').format(rawValues[rodIndex])}'
+                        : rawValues[rodIndex].toString();
+                    return BarTooltipItem(
+                      '${labels[rodIndex]}\n$display',
+                      const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600),
+                    );
+                  },
+                ),
+              ),
+              barGroups: List.generate(_shifts.length, (i) {
+                return BarChartGroupData(
+                  x: i,
+                  barsSpace: 4,
+                  barRods: [
+                    BarChartRodData(
+                      toY: data[i][0],
+                      width: 10,
+                      color: const Color(0xFF10B981),
+                      borderRadius: BorderRadius.circular(3),
+                    ),
+                    BarChartRodData(
+                      toY: data[i][1],
+                      width: 10,
+                      color: Colors.indigo,
+                      borderRadius: BorderRadius.circular(3),
+                    ),
+                    BarChartRodData(
+                      toY: data[i][2],
+                      width: 10,
+                      color: const Color(0xFFF59E0B),
+                      borderRadius: BorderRadius.circular(3),
+                    ),
+                  ],
+                );
+              }),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ─────────────────────────────────────────────
 //  DASHBOARD BODY
 // ─────────────────────────────────────────────
 class _DashboardBody extends StatefulWidget {
@@ -539,7 +734,7 @@ class _DashboardBodyState extends State<_DashboardBody> {
   void initState() {
     super.initState();
     final prov = Provider.of<DashboardProvider>(context, listen: false);
-    
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       // Ensure we start with today's date and 'All' shifts
@@ -756,44 +951,8 @@ class _DashboardBodyState extends State<_DashboardBody> {
                 delay: const Duration(milliseconds: 500),
                 child: _buildGlassPanel(
                   title: 'Revenue by Shift',
-                  subtitle: 'OPD vs Consultation split',
-                  trailing: Row(
-                    children: [
-                      _chartLegend('Morning', const Color(0xFF10B981)),
-                      const SizedBox(width: 8),
-                      _chartLegend('Evening', Colors.indigo),
-                      const SizedBox(width: 8),
-                      _chartLegend('Night', Colors.amber),
-                    ],
-                  ),
-                  child: SizedBox(
-                    height: MediaQuery.of(context).size.height * 0.3,
-                    child: SfCartesianChart(
-                      key: ValueKey('shift_rev_${dashboardProv.selectedDate}_${dashboardProv.selectedShiftType}'),
-                      margin: EdgeInsets.zero,
-                      plotAreaBorderWidth: 0,
-                      primaryXAxis: CategoryAxis(
-                        majorGridLines: const MajorGridLines(width: 0),
-                        axisLine: const AxisLine(width: 0),
-                        labelStyle: const TextStyle(
-                            fontSize: 10, color: Colors.grey),
-                      ),
-                      primaryYAxis: NumericAxis(
-                        majorGridLines: MajorGridLines(
-                            width: 1,
-                            color: Colors.grey.shade100,
-                            dashArray: const [4, 4]),
-                        axisLine: const AxisLine(width: 0),
-                        axisLabelFormatter: (details) => ChartAxisLabel(
-                            '${(details.value / 1000).toStringAsFixed(0)}k',
-                            const TextStyle(
-                                fontSize: 10, color: Colors.grey)),
-                      ),
-                      tooltipBehavior:
-                      TooltipBehavior(enable: true, header: ''),
-                      series: _getColumnSeries(dashboardProv),
-                    ),
-                  ),
+                  subtitle: 'OPD · Consultation · Patients',
+                  child: _ShiftGroupedBarChart(prov: dashboardProv),
                 ),
               ),
               const SizedBox(height: 20),
